@@ -190,10 +190,12 @@ export function detectMediaTypeHeuristic(
   }
 
   // 3. Check Comics vs Manga
+  const mangaPattern =
+    /(?:^|[\s._-])(cap\.?|capítulo|capitulo|ch\.?|chapter|manga|mangá)(?:$|[\s._-]|\d)/i;
   if (exts.some((e) => COMIC_EXTENSIONS.has(e))) {
     if (
-      /\b(cap\.|capítulo|capitulo|ch\.|chapter|manga|mangá)\b/i.test(lowerName) ||
-      relativeFiles.some((f) => /\b(cap\.|ch\.)\s*\d+/i.test(f))
+      mangaPattern.test(lowerName) ||
+      relativeFiles.some((f) => mangaPattern.test(f))
     ) {
       return { mediaType: 'manga', confidence: 0.88 };
     }
@@ -206,12 +208,12 @@ export function detectMediaTypeHeuristic(
   }
   if (exts.some((e) => SHARED_BOOK_COMIC_EXTENSIONS.has(e))) {
     if (
-      /\b(cap\.|capítulo|ch\.|manga|mangá)\b/i.test(lowerName) ||
-      relativeFiles.some((f) => /\b(cap\.|ch\.)\s*\d+/i.test(f))
+      mangaPattern.test(lowerName) ||
+      relativeFiles.some((f) => mangaPattern.test(f))
     ) {
       return { mediaType: 'manga', confidence: 0.8 };
     }
-    if (/\b(issue|comic|hq|#\d+)\b/i.test(lowerName)) {
+    if (/(?:^|[\s._-])(issue|comic|hq|#\d+)/i.test(lowerName)) {
       return { mediaType: 'comics', confidence: 0.8 };
     }
     return { mediaType: 'books', confidence: 0.85 };
