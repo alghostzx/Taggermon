@@ -1,0 +1,13 @@
+node_modules
+dist
+coverage
+.git
+.github
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+*.log
+tmp
+.tmp
+data

@@ -1,0 +1,32 @@
+services:
+  taggermon:
+    image: ghcr.io/alghostzx/taggermon:latest
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: taggermon
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      - PORT=3000
+      - HOST=0.0.0.0
+      - CONFIG_DIR=/config
+      - DOWNLOADS_DIR=/downloads
+      - LIBRARY_MUSIC_DIR=/library/music
+      - LIBRARY_AUDIOBOOKS_DIR=/library/audiobooks
+      - LIBRARY_BOOKS_DIR=/library/books
+      - LIBRARY_COMICS_DIR=/library/comics
+      - LIBRARY_MANGA_DIR=/library/manga
+      - LIBRARY_MOVIES_DIR=/library/movies
+      - LIBRARY_SERIES_DIR=/library/series
+    volumes:
+      - ${TAGGERMON_CONFIG_PATH:-./data/config}:/config
+      - ${TAGGERMON_DOWNLOADS_PATH:-./data/downloads}:/downloads
+      - ${TAGGERMON_MUSIC_PATH:-./data/library/music}:/library/music
+      - ${TAGGERMON_AUDIOBOOKS_PATH:-./data/library/audiobooks}:/library/audiobooks
+      - ${TAGGERMON_BOOKS_PATH:-./data/library/books}:/library/books
+      - ${TAGGERMON_COMICS_PATH:-./data/library/comics}:/library/comics
+      - ${TAGGERMON_MANGA_PATH:-./data/library/manga}:/library/manga
+      - ${TAGGERMON_MOVIES_PATH:-./data/library/movies}:/library/movies
+      - ${TAGGERMON_SERIES_PATH:-./data/library/series}:/library/series
