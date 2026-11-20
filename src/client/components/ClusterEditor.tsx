@@ -437,8 +437,37 @@ export const ClusterEditor: React.FC<ClusterEditorProps> = ({
     }
   };
 
-  const clusterLevelFields = meta.availableTags.filter((t) => t.isClusterLevel);
-  const fileLevelFields = meta.availableTags.filter((t) => !t.isClusterLevel);
+  const activeRequiredSet = useMemo(
+    () =>
+      new Set(
+        currentTemplate?.requiredTags && currentTemplate.requiredTags.length > 0
+          ? currentTemplate.requiredTags
+          : meta.availableTags.map((t) => t.key)
+      ),
+    [currentTemplate, meta.availableTags]
+  );
+
+  const allActiveTagDefinitions = useMemo(() => {
+    const standardMap = new Map(meta.availableTags.map((t) => [t.key, t]));
+    const defs = meta.availableTags.filter((t) => activeRequiredSet.has(t.key));
+    for (const rk of activeRequiredSet) {
+      if (!standardMap.has(rk)) {
+        defs.push({
+          key: rk,
+          label: rk,
+          isClusterLevel: false,
+        });
+      }
+    }
+    return defs;
+  }, [meta.availableTags, activeRequiredSet]);
+
+  const clusterLevelFields = allActiveTagDefinitions.filter(
+    (t) => t.isClusterLevel
+  );
+  const fileLevelFields = allActiveTagDefinitions.filter(
+    (t) => !t.isClusterLevel
+  );
   const extraImages = scan.extraFiles.filter((e) => e.isImage);
 
   return (

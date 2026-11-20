@@ -306,6 +306,24 @@ describe('UI: React Application, ClusterEditor, COV Remote Protocol & TemplateMa
       if (url.includes('/suggestions')) {
         return new Response(
           JSON.stringify({
+            discoveredTags: [
+              {
+                key: 'album_artist',
+                count: 40,
+                totalSampled: 40,
+                frequency: 1,
+                sampleValues: ['Pink Floyd'],
+                isStandardTag: true,
+              },
+              {
+                key: 'custom_sampled_tag',
+                count: 20,
+                totalSampled: 40,
+                frequency: 0.5,
+                sampleValues: ['Value1'],
+                isStandardTag: false,
+              },
+            ],
             suggestions: [
               {
                 pathTemplate: '{album_artist}/[{year} - ]{album}',
@@ -313,6 +331,7 @@ describe('UI: React Application, ClusterEditor, COV Remote Protocol & TemplateMa
                 confidence: 0.95,
                 matchCount: 38,
                 totalSampled: 40,
+                suggestedTags: ['album_artist', 'year', 'album', 'track', 'title'],
                 samplePreviews: [
                   {
                     originalPath:
@@ -509,7 +528,21 @@ describe('UI: React Application, ClusterEditor, COV Remote Protocol & TemplateMa
 
     await waitFor(() => {
       expect(screen.getByText(/38\/40 arquivos — 95%/i)).toBeInTheDocument();
+      expect(
+        screen.getByText(/Tags Encontradas na Amostragem/i)
+      ).toBeInTheDocument();
+      expect(screen.getByText('custom_sampled_tag')).toBeInTheDocument();
     });
+
+    // Test adding a custom tag manually and applying discovered tags
+    const customInput = screen.getByPlaceholderText(
+      /Adicionar tag personalizada ao template/i
+    );
+    fireEvent.change(customInput, { target: { value: 'translator' } });
+    fireEvent.click(screen.getByText(/Adicionar Tag ao Template/i));
+    expect(screen.getByText('{translator}')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByText('Usar Tags Encontradas'));
 
     // Apply suggested template ("Usar este") and Save
     fireEvent.click(screen.getByText('Usar este'));

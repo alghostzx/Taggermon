@@ -151,7 +151,7 @@ describe('Unit: Template Engine & Heuristic Library Sampler', () => {
     expect(bookPdf.pathTemplate).toBe('{author}');
     expect(bookPdf.filenameTemplate).toBe('{title} ({year}).{ext}');
 
-    // 5. Manga & Comics
+    // 5. Manga & Comics (both standard Cap. pattern and real-world "{series} - {writer}/{series} - Vol. {number:02} - {writer}.cbz")
     const manga = deduceTemplateFromSample(
       'manga',
       'One Piece/Vol. 01/One Piece - Vol. 01 Cap. 001 - Romance Dawn.cbz',
@@ -160,6 +160,24 @@ describe('Unit: Template Engine & Heuristic Library Sampler', () => {
     expect(manga.pathTemplate).toBe('{series}/Vol. {volume:02}');
     expect(manga.filenameTemplate).toBe(
       '{series} - [Vol. {volume:02} ]Cap. {number:03}[ - {title}].{ext}'
+    );
+
+    const realWorldManga = deduceTemplateFromSample(
+      'manga',
+      'Death Note - Tsugumi Ohba/Death Note - Vol. 07 - Tsugumi Ohba.cbz',
+      {
+        title: 'Death Note - Vol. 07',
+        series: 'Death Note',
+        number: '07',
+        count: '13',
+        writer: 'Tsugumi Ohba',
+        publisher: 'JBC',
+        language: 'pt-BR',
+      }
+    );
+    expect(realWorldManga.pathTemplate).toBe('{series} - {writer}');
+    expect(realWorldManga.filenameTemplate).toBe(
+      '{series} - Vol. {number:02} - {writer}.{ext}'
     );
 
     // 6. Movies

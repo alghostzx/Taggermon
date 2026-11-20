@@ -88,12 +88,22 @@ export interface ClusterScanResult {
   subtitles: SubtitleItem[];
 }
 
+export interface DiscoveredTagSuggestion {
+  key: string;
+  count: number;
+  totalSampled: number;
+  frequency: number;
+  sampleValues: string[];
+  isStandardTag: boolean;
+}
+
 export interface TemplateSuggestion {
   pathTemplate: string;
   filenameTemplate: string;
   confidence: number;
   matchCount: number;
   totalSampled: number;
+  suggestedTags: string[];
   samplePreviews: Array<{
     originalPath: string;
     extractedTags: Record<string, string>;

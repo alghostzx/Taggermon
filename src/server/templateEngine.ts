@@ -235,13 +235,28 @@ export function deduceTemplateFromSample(
   // Sort tags by value length descending so longer values (e.g. album title vs artist) match first
   const tagEntries = Object.entries(knownTags)
     .filter(([k, v]) => v && v.trim().length > 0 && k !== 'ext')
-    .sort((a, b) => b[1].length - a[1].length);
+    .sort((a, b) => {
+      // For Manga/Comics, prioritize specific `{series}` + `{number}`/`{volume}` over a composite `{title}` that just repeats "Series - Vol. 01"
+      if (
+        (mediaType === 'manga' || mediaType === 'comics') &&
+        knownTags.series &&
+        (knownTags.number || knownTags.volume)
+      ) {
+        if (a[0] === 'title' && b[0] !== 'title') return 1;
+        if (b[0] === 'title' && a[0] !== 'title') return -1;
+      }
+      return b[1].length - a[1].length;
+    });
 
   function replaceKnownTagsInText(text: string): string {
     let result = text;
 
     // First handle numeric tags with potential zero-padding (track, disc, year, number, volume)
     for (const [key, val] of tagEntries) {
+      if (['count', 'total_tracks', 'total_discs'].includes(key)) {
+        // Total counts rarely appear raw in filenames unless explicitly delimited
+        continue;
+      }
       if (/^\d+$/.test(val.trim())) {
         const num = parseInt(val.trim(), 10);
         const pad3 = String(num).padStart(3, '0');
@@ -352,6 +367,10 @@ export function deduceTemplateFromSample(
       const volMatch = seg.match(/^Vol\.\s*(\d+)$/i);
       if (volMatch) {
         return 'Vol. {volume:02}';
+      }
+      const seriesWriterMatch = seg.match(/^([^{}]+?)\s+-\s+\{writer\}$/i);
+      if (seriesWriterMatch) {
+        return '{series} - {writer}';
       }
       if (idx === 0 && !seg.includes('{')) {
         return '{series}';
@@ -505,6 +524,7 @@ export function aggregateTemplateSuggestions(
         confidence: 1,
         matchCount: 0,
         totalSampled: 0,
+        suggestedTags: cfg.availableTags.map((t) => t.key),
         samplePreviews: [],
       },
     ];
@@ -516,6 +536,7 @@ export function aggregateTemplateSuggestions(
       pathTemplate: string;
       filenameTemplate: string;
       count: number;
+      tagSet: Set<string>;
       previews: Array<{
         originalPath: string;
         extractedTags: Record<string, string>;
@@ -531,8 +552,13 @@ export function aggregateTemplateSuggestions(
     );
     const key = `${deduced.pathTemplate}|||${deduced.filenameTemplate}`;
     const existing = groups.get(key);
+    const sampleTagKeys = Object.keys(deduced.extractedTags).filter(
+      (k) => deduced.extractedTags[k] && k !== 'ext'
+    );
+
     if (existing) {
       existing.count++;
+      for (const tk of sampleTagKeys) existing.tagSet.add(tk);
       if (existing.previews.length < 5) {
         existing.previews.push({
           originalPath: sample.relativePath,
@@ -544,6 +570,7 @@ export function aggregateTemplateSuggestions(
         pathTemplate: deduced.pathTemplate,
         filenameTemplate: deduced.filenameTemplate,
         count: 1,
+        tagSet: new Set(sampleTagKeys),
         previews: [
           {
             originalPath: sample.relativePath,
@@ -563,6 +590,7 @@ export function aggregateTemplateSuggestions(
       confidence: Number((g.count / total).toFixed(2)),
       matchCount: g.count,
       totalSampled: total,
+      suggestedTags: Array.from(g.tagSet),
       samplePreviews: g.previews,
     }));
 }

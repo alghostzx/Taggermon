@@ -7,6 +7,7 @@ import {
   MEDIA_TYPES_CONFIG,
 } from '../shared/constants.js';
 import {
+  DiscoveredTagSuggestion,
   ExtraFileAction,
   MediaType,
   TemplateSuggestion,
@@ -436,15 +437,20 @@ function removeEmptySubdirsRecursive(dir: string): void {
 }
 
 /**
- * Samples an existing library mount and generates heuristic template suggestions.
+ * Samples an existing library mount and generates heuristic template suggestions
+ * along with discovered tags across the sampled files.
  */
 export async function suggestTemplatesFromExistingLibrary(
   mediaType: MediaType,
   maxSamples = 35
-): Promise<TemplateSuggestion[]> {
+): Promise<{
+  suggestions: TemplateSuggestion[];
+  discoveredTags: DiscoveredTagSuggestion[];
+}> {
   const libDir = getLibraryDir(mediaType);
-  const template = getTemplateByMediaType(mediaType);
-  const allowedTags = template.requiredTags;
+  const cfg = MEDIA_TYPES_CONFIG[mediaType];
+  const allPossibleStandardTags = cfg.availableTags.map((t) => t.key);
+  const standardTagSet = new Set(allPossibleStandardTags);
 
   let exts: Set<string>;
   switch (mediaType) {
@@ -473,23 +479,105 @@ export async function suggestTemplatesFromExistingLibrary(
     tags: Record<string, string>;
   }> = [];
 
+  const tagCounts = new Map<
+    string,
+    { count: number; sampleValues: Set<string>; isStandard: boolean }
+  >();
+
+  const recordDiscoveredTag = (
+    key: string,
+    val: string,
+    isStandard: boolean
+  ) => {
+    const cleanKey = key.trim();
+    const cleanVal = String(val).trim();
+    if (!cleanKey || !cleanVal || cleanKey === 'ext') return;
+    const entry = tagCounts.get(cleanKey);
+    if (entry) {
+      entry.count++;
+      if (entry.sampleValues.size < 3) {
+        entry.sampleValues.add(cleanVal);
+      }
+    } else {
+      tagCounts.set(cleanKey, {
+        count: 1,
+        sampleValues: new Set([cleanVal]),
+        isStandard,
+      });
+    }
+  };
+
   for (const relPath of sampledRelativePaths) {
     const fullPath = path.join(libDir, relPath);
     let tags: Record<string, string> = {};
+    let extraTags: Record<string, string> = {};
+
     if (mediaType === 'music' || mediaType === 'audiobooks') {
-      const res = await inspectAudioFile(fullPath, mediaType, allowedTags);
+      const res = await inspectAudioFile(
+        fullPath,
+        mediaType,
+        allPossibleStandardTags
+      );
       tags = res.tags;
+      extraTags = res.unwantedTags;
     } else if (mediaType === 'comics' || mediaType === 'manga') {
-      const res = await inspectComicOrMangaFile(fullPath, allowedTags);
+      const res = await inspectComicOrMangaFile(
+        fullPath,
+        allPossibleStandardTags
+      );
       tags = res.tags;
+      extraTags = res.unwantedTags;
     } else if (mediaType === 'books') {
-      const res = await inspectBookFile(fullPath, allowedTags);
+      const res = await inspectBookFile(fullPath, allPossibleStandardTags);
       tags = res.tags;
+      extraTags = res.unwantedTags;
     }
+
+    for (const [k, v] of Object.entries(tags)) {
+      recordDiscoveredTag(k, v, true);
+    }
+    for (const [k, v] of Object.entries(extraTags)) {
+      recordDiscoveredTag(k, v, standardTagSet.has(k));
+    }
+
     samplesWithTags.push({ relativePath: relPath, tags });
   }
 
-  return aggregateTemplateSuggestions(mediaType, samplesWithTags);
+  const suggestions = aggregateTemplateSuggestions(mediaType, samplesWithTags);
+
+  // Also record tags deduced structurally from paths/filenames (for movies, series, or untagged files)
+  for (const sug of suggestions) {
+    for (const prev of sug.samplePreviews) {
+      for (const [k, v] of Object.entries(prev.extractedTags)) {
+        if (!tagCounts.has(k)) {
+          recordDiscoveredTag(k, v, standardTagSet.has(k));
+        }
+      }
+    }
+  }
+
+  const totalSampled = sampledRelativePaths.length || 1;
+  const discoveredTags: DiscoveredTagSuggestion[] = Array.from(
+    tagCounts.entries()
+  )
+    .sort((a, b) => {
+      if (a[1].isStandard !== b[1].isStandard) {
+        return a[1].isStandard ? -1 : 1;
+      }
+      return b[1].count - a[1].count;
+    })
+    .map(([key, info]) => ({
+      key,
+      count: info.count,
+      totalSampled: sampledRelativePaths.length,
+      frequency: Number(
+        Math.min(1, info.count / totalSampled).toFixed(2)
+      ),
+      sampleValues: Array.from(info.sampleValues),
+      isStandardTag: info.isStandard,
+    }));
+
+  return { suggestions, discoveredTags };
 }
 
 /**
@@ -542,11 +630,9 @@ export async function registerApiRoutes(app: FastifyInstance): Promise<void> {
     const max = req.query.maxSamples
       ? parseInt(req.query.maxSamples, 10)
       : 35;
-    const suggestions = await suggestTemplatesFromExistingLibrary(
-      mediaType,
-      max
-    );
-    return { suggestions };
+    const { suggestions, discoveredTags } =
+      await suggestTemplatesFromExistingLibrary(mediaType, max);
+    return { suggestions, discoveredTags };
   });
 
   // 5. List folders in downloads or any of the 7 libraries

@@ -5,8 +5,100 @@ import { promisify } from 'util';
 import fs from 'fs';
 import path from 'path';
 import os from 'os';
+import zlib from 'zlib';
 
 const execFileAsync = promisify(execFile);
+
+/**
+ * Fast ZIP Central Directory reader that extracts ONLY a single XML/text entry (e.g. `ComicInfo.xml`)
+ * from a `.cbz`/`.zip` archive without loading the entire 60MB-300MB archive into memory.
+ */
+export function readSingleFileFromZipFast(
+  zipPath: string,
+  predicate: (entryName: string) => boolean
+): Buffer | null {
+  let fd: number | null = null;
+  try {
+    fd = fs.openSync(zipPath, 'r');
+    const stat = fs.fstatSync(fd);
+    const fileSize = stat.size;
+    if (fileSize < 22) return null;
+
+    const tailSize = Math.min(fileSize, 65557);
+    const tailBuf = Buffer.alloc(tailSize);
+    fs.readSync(fd, tailBuf, 0, tailSize, fileSize - tailSize);
+
+    // Search backwards for End of Central Directory signature (0x06054b50)
+    let eocdPos = -1;
+    for (let i = tailSize - 22; i >= 0; i--) {
+      if (tailBuf.readUInt32LE(i) === 0x06054b50) {
+        eocdPos = i;
+        break;
+      }
+    }
+    if (eocdPos === -1) return null;
+
+    const cdSize = tailBuf.readUInt32LE(eocdPos + 12);
+    const cdOffset = tailBuf.readUInt32LE(eocdPos + 16);
+    if (
+      cdOffset === 0xffffffff ||
+      cdSize === 0xffffffff ||
+      cdOffset + cdSize > fileSize
+    ) {
+      return null;
+    }
+
+    const cdBuf = Buffer.alloc(cdSize);
+    fs.readSync(fd, cdBuf, 0, cdSize, cdOffset);
+
+    let ptr = 0;
+    while (ptr + 46 <= cdSize) {
+      if (cdBuf.readUInt32LE(ptr) !== 0x02014b50) break;
+      const compressionMethod = cdBuf.readUInt16LE(ptr + 10);
+      const compSize = cdBuf.readUInt32LE(ptr + 20);
+      const fileNameLen = cdBuf.readUInt16LE(ptr + 28);
+      const extraLen = cdBuf.readUInt16LE(ptr + 30);
+      const commentLen = cdBuf.readUInt16LE(ptr + 32);
+      const localHeaderOffset = cdBuf.readUInt32LE(ptr + 42);
+
+      const entryName = cdBuf.toString(
+        'utf8',
+        ptr + 46,
+        ptr + 46 + fileNameLen
+      );
+      if (predicate(entryName)) {
+        const lhBuf = Buffer.alloc(30);
+        fs.readSync(fd, lhBuf, 0, 30, localHeaderOffset);
+        if (lhBuf.readUInt32LE(0) !== 0x04034b50) return null;
+        const lhNameLen = lhBuf.readUInt16LE(26);
+        const lhExtraLen = lhBuf.readUInt16LE(28);
+        const dataOffset = localHeaderOffset + 30 + lhNameLen + lhExtraLen;
+        const rawData = Buffer.alloc(compSize);
+        fs.readSync(fd, rawData, 0, compSize, dataOffset);
+
+        if (compressionMethod === 0) {
+          return rawData;
+        } else if (compressionMethod === 8) {
+          return zlib.inflateRawSync(rawData);
+        }
+        return null;
+      }
+
+      ptr += 46 + fileNameLen + extraLen + commentLen;
+    }
+    return null;
+  } catch {
+    return null;
+  } finally {
+    if (fd !== null) {
+      try {
+        fs.closeSync(fd);
+      } catch {
+        // ignore
+      }
+    }
+  }
+}
 
 const IMAGE_EXTENSIONS = new Set([
   '.jpg',
@@ -26,9 +118,12 @@ const COMIC_INFO_TO_TAG_KEY: Record<string, string> = {
   Year: 'year',
   Volume: 'volume',
   Number: 'number',
+  Count: 'count',
   Title: 'title',
   Genre: 'genre',
   LanguageISO: 'language',
+  Manga: 'manga',
+  BlackAndWhite: 'black_and_white',
 };
 
 const TAG_KEY_TO_COMIC_INFO: Record<string, string> = {
@@ -39,9 +134,12 @@ const TAG_KEY_TO_COMIC_INFO: Record<string, string> = {
   year: 'Year',
   volume: 'Volume',
   number: 'Number',
+  count: 'Count',
   title: 'Title',
   genre: 'Genre',
   language: 'LanguageISO',
+  manga: 'Manga',
+  black_and_white: 'BlackAndWhite',
 };
 
 const xmlParser = new XMLParser({
@@ -173,6 +271,27 @@ export async function inspectComicOrMangaFile(
 
   if (ext === '.cbz') {
     try {
+      // Fast path: read only Central Directory + ComicInfo.xml entry without loading 100MB+ of image pages
+      const fastXmlBuf = readSingleFileFromZipFast(
+        filePath,
+        (name) => path.basename(name).toLowerCase() === 'comicinfo.xml'
+      );
+      if (fastXmlBuf) {
+        const xmlText = fastXmlBuf.toString('utf8');
+        const { tags, unwantedTags } = parseComicInfoXml(
+          xmlText,
+          allowedTemplateTags,
+          whitelistedExtraTags
+        );
+        return {
+          tags,
+          unwantedTags,
+          needsConversionToCbz: false,
+          isPdfNoInternalTags: false,
+        };
+      }
+
+      // Fallback to AdmZip if ZIP64 or non-standard header
       const zip = new AdmZip(filePath);
       const entry = zip
         .getEntries()
