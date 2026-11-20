@@ -1,5 +1,5 @@
 # Stage 1: Build Frontend & Backend
-FROM node:22-bookworm-slim AS builder
+FROM node:24-bookworm-slim AS builder
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
     python3 \
@@ -18,7 +18,7 @@ COPY src ./src
 RUN npm run build && npm prune --omit=dev
 
 # Stage 2: Runtime Container with Media Tools
-FROM node:22-bookworm-slim AS runtime
+FROM node:24-bookworm-slim AS runtime
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
     ffmpeg \
