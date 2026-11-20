@@ -544,6 +544,14 @@ describe('UI: React Application, ClusterEditor, COV Remote Protocol & TemplateMa
 
     fireEvent.click(screen.getByText('Usar Tags Encontradas'));
 
+    // Test "Aumentar Amostra (+40)" button to expand the search zone from 40 to 80 files
+    fireEvent.click(screen.getByText(/Aumentar Amostra \(\+40\)/i));
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith(
+        expect.stringContaining('/api/templates/music/suggestions?maxSamples=80')
+      );
+    });
+
     // Apply suggested template ("Usar este") and Save
     fireEvent.click(screen.getByText('Usar este'));
     fireEvent.click(screen.getByText('Salvar Template'));
