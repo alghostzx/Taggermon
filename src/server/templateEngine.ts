@@ -425,18 +425,29 @@ export function deduceTemplateFromSample(
 }
 
 /**
- * Recursively collects up to `maxFiles` media files from a library directory for sampling.
+ * Recursively traverses a library directory and returns a uniformly random sample
+ * of up to `maxFiles` media files (using Reservoir Sampling + Fisher-Yates shuffle),
+ * ensuring files across the entire library are sampled rather than the first sequential files.
  */
 export function sampleFilesFromLibrary(
   libraryRootDir: string,
   allowedExtensions: Set<string>,
   maxFiles = 40
 ): string[] {
-  if (!fs.existsSync(libraryRootDir)) return [];
-  const sampled: string[] = [];
+  if (!fs.existsSync(libraryRootDir) || maxFiles <= 0) return [];
+  const reservoir: string[] = [];
+  let totalEligibleSeen = 0;
+
+  function shuffleInPlace<T>(arr: T[]): void {
+    for (let i = arr.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      const tmp = arr[i];
+      arr[i] = arr[j];
+      arr[j] = tmp;
+    }
+  }
 
   function walk(currentDir: string) {
-    if (sampled.length >= maxFiles) return;
     let entries: fs.Dirent[];
     try {
       entries = fs.readdirSync(currentDir, { withFileTypes: true });
@@ -444,8 +455,10 @@ export function sampleFilesFromLibrary(
       return;
     }
 
+    // Randomize traversal order of directories and files at each level
+    shuffleInPlace(entries);
+
     for (const entry of entries) {
-      if (sampled.length >= maxFiles) break;
       if (entry.name.startsWith('.')) continue;
       const fullPath = path.join(currentDir, entry.name);
       if (entry.isDirectory()) {
@@ -453,14 +466,27 @@ export function sampleFilesFromLibrary(
       } else if (entry.isFile()) {
         const ext = path.extname(entry.name).toLowerCase().replace(/^\./, '');
         if (allowedExtensions.has(ext)) {
-          sampled.push(path.relative(libraryRootDir, fullPath));
+          const relPath = path
+            .relative(libraryRootDir, fullPath)
+            .replace(/\\/g, '/');
+          totalEligibleSeen++;
+          if (reservoir.length < maxFiles) {
+            reservoir.push(relPath);
+          } else {
+            // Algorithm R (Vitter's Reservoir Sampling): replace with probability maxFiles / totalEligibleSeen
+            const replaceIndex = Math.floor(Math.random() * totalEligibleSeen);
+            if (replaceIndex < maxFiles) {
+              reservoir[replaceIndex] = relPath;
+            }
+          }
         }
       }
     }
   }
 
   walk(libraryRootDir);
-  return sampled;
+  shuffleInPlace(reservoir);
+  return reservoir;
 }
 
 /**

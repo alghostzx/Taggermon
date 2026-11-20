@@ -11,6 +11,7 @@ import {
   parseTagsFromPattern,
   deduceTemplateFromSample,
   aggregateTemplateSuggestions,
+  sampleFilesFromLibrary,
 } from '../src/server/templateEngine.js';
 import {
   inspectAudioFile,
@@ -146,6 +147,43 @@ describe('Template Engine & Heuristic Discovery', () => {
       '{series} - S{season:02}E{episode:02}[ - {title}].{ext}'
     );
     expect(seriesSuggestions[0].confidence).toBe(1);
+  });
+
+  it('samples files randomly across the entire library rather than taking the first sequential files', () => {
+    const tmpLib = fs.mkdtempSync(path.join(os.tmpdir(), 'taggermon-rnd-'));
+    try {
+      // Create 100 files across 10 folders
+      for (let folderIdx = 1; folderIdx <= 10; folderIdx++) {
+        const dir = path.join(
+          tmpLib,
+          `Artist_${String(folderIdx).padStart(2, '0')}`
+        );
+        fs.mkdirSync(dir, { recursive: true });
+        for (let trackIdx = 1; trackIdx <= 10; trackIdx++) {
+          fs.writeFileSync(
+            path.join(dir, `${String(trackIdx).padStart(2, '0')} - Song.mp3`),
+            'dummy'
+          );
+        }
+      }
+
+      const sampleA = sampleFilesFromLibrary(tmpLib, new Set(['mp3']), 15);
+      const sampleB = sampleFilesFromLibrary(tmpLib, new Set(['mp3']), 15);
+
+      expect(sampleA).toHaveLength(15);
+      expect(sampleB).toHaveLength(15);
+      // Ensure no duplicate paths inside a single sample
+      expect(new Set(sampleA).size).toBe(15);
+      // Ensure random samples across 100 files differ in content or order
+      expect(sampleA.join('|')).not.toBe(sampleB.join('|'));
+      // Ensure files come from multiple folders across the library, not just Artist_01 and Artist_02
+      const distinctFolders = new Set(
+        sampleA.map((rel) => rel.split('/')[0])
+      );
+      expect(distinctFolders.size).toBeGreaterThan(2);
+    } finally {
+      fs.rmSync(tmpLib, { recursive: true, force: true });
+    }
   });
 });
 
