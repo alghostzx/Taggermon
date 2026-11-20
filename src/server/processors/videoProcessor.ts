@@ -81,44 +81,46 @@ export function detectSubtitleLanguageAndFlags(subtitleFilename: string): {
   isSdh: boolean;
 } {
   const ext = path.extname(subtitleFilename);
-  const base = subtitleFilename.slice(0, -ext.length);
-  const tokens = base.split(/[._\s-]+/);
-
+  let base = subtitleFilename.slice(0, -ext.length);
   let isForced = false;
   let isSdh = false;
   let languageCode = '';
 
-  const knownLangPattern =
-    /^(pt[-_]br|pt[-_]pt|pt|pob|por|en|eng|es|spa|fr|fre|fra|de|ger|deu|it|ita|ja|jpn|ko|kor|ru|rus|zh|chi|zho)$/i;
-
-  for (let i = tokens.length - 1; i >= Math.max(0, tokens.length - 4); i--) {
-    const tok = tokens[i];
-    if (!tok) continue;
-    const lower = tok.toLowerCase();
-    if (lower === 'forced') {
+  // Iteratively strip trailing .forced / .sdh / .cc flags
+  let flagMatched = true;
+  while (flagMatched) {
+    flagMatched = false;
+    if (/[._\s-]forced$/i.test(base)) {
       isForced = true;
-      continue;
-    }
-    if (lower === 'sdh' || lower === 'cc') {
+      base = base.replace(/[._\s-]forced$/i, '');
+      flagMatched = true;
+    } else if (/[._\s-](sdh|cc)$/i.test(base)) {
       isSdh = true;
-      continue;
+      base = base.replace(/[._\s-](sdh|cc)$/i, '');
+      flagMatched = true;
     }
-    if (!languageCode && knownLangPattern.test(tok)) {
-      if (lower === 'pt-br' || lower === 'pt_br' || lower === 'pob') {
-        languageCode = 'pt-BR';
-      } else if (lower === 'pt-pt' || lower === 'pt_pt') {
-        languageCode = 'pt-PT';
-      } else if (lower === 'por' || lower === 'pt') {
-        languageCode = 'pt';
-      } else if (lower === 'eng' || lower === 'en') {
-        languageCode = 'en';
-      } else if (lower === 'spa' || lower === 'es') {
-        languageCode = 'es';
-      } else if (lower === 'jpn' || lower === 'ja') {
-        languageCode = 'ja';
-      } else {
-        languageCode = lower;
-      }
+  }
+
+  // Check for compound or standard language code at the end of `base`
+  const langMatch = base.match(
+    /(?:^|[._\s-])(pt[-_]br|pt[-_]pt|pt|pob|por|en|eng|es|spa|fr|fre|fra|de|ger|deu|it|ita|ja|jpn|ko|kor|ru|rus|zh|chi|zho)$/i
+  );
+  if (langMatch) {
+    const lower = langMatch[1].toLowerCase();
+    if (lower === 'pt-br' || lower === 'pt_br' || lower === 'pob') {
+      languageCode = 'pt-BR';
+    } else if (lower === 'pt-pt' || lower === 'pt_pt') {
+      languageCode = 'pt-PT';
+    } else if (lower === 'por' || lower === 'pt') {
+      languageCode = 'pt';
+    } else if (lower === 'eng' || lower === 'en') {
+      languageCode = 'en';
+    } else if (lower === 'spa' || lower === 'es') {
+      languageCode = 'es';
+    } else if (lower === 'jpn' || lower === 'ja') {
+      languageCode = 'ja';
+    } else {
+      languageCode = lower;
     }
   }
 
