@@ -26,6 +26,7 @@ import {
 import { ALL_MEDIA_TYPES, MEDIA_TYPES_CONFIG } from '../shared/constants';
 import { TemplateManager } from './components/TemplateManager';
 import { ClusterEditor } from './components/ClusterEditor';
+import { TaggermonLogo } from './components/TaggermonLogo';
 
 interface FolderItem {
   name: string;
@@ -166,19 +167,10 @@ export const App: React.FC = () => {
     <div className="min-h-screen flex flex-col bg-slate-950 text-slate-100">
       {/* Top Navigation Bar */}
       <header className="border-b border-slate-800 bg-slate-900/80 backdrop-blur sticky top-0 z-20">
-        <div className="w-full max-w-[1920px] mx-auto px-6 h-16 flex items-center justify-between gap-4">
+        <div className="w-full max-w-[1920px] mx-auto px-6 py-2.5 flex flex-wrap items-center justify-between gap-4">
           <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center shadow-lg shadow-indigo-500/20">
-              <Tags className="w-5 h-5 text-white" />
-            </div>
-            <div>
-              <h1 className="text-base font-bold tracking-tight text-white">
-                Taggermon
-              </h1>
-              <p className="text-[11px] text-slate-400">
-                All-Purpose Media Tag Editor & Library Organizer
-              </p>
-            </div>
+            <TaggermonLogo />
+            <span className="sr-only">Taggermon</span>
           </div>
 
           <nav className="flex items-center gap-2">
