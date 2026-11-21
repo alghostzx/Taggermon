@@ -166,28 +166,30 @@ export const App: React.FC = () => {
   return (
     <div className="min-h-screen flex flex-col bg-slate-950 text-slate-100">
       {/* Top Navigation Bar */}
-      <header className="border-b border-slate-800 bg-slate-900/80 backdrop-blur sticky top-0 z-20">
-        <div className="w-full max-w-[1920px] mx-auto px-6 h-16 flex items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
+      <header className="border-b border-slate-800 bg-slate-900/95 backdrop-blur sticky top-0 z-20">
+        <div className="w-full max-w-[1920px] mx-auto px-3 sm:px-6 h-16 flex items-center justify-between gap-2 sm:gap-4">
+          <div className="flex items-center gap-2 sm:gap-3 min-w-0 shrink">
             <TaggermonLogo />
             <span className="sr-only">Taggermon</span>
           </div>
 
-          <nav className="flex items-center gap-2">
+          <nav className="flex items-center gap-1.5 sm:gap-2 shrink-0">
             <button
               onClick={() => {
                 setActiveTab('downloads');
                 setCurrentParentPath('');
                 setActiveScan(null);
               }}
-              className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-semibold transition ${
+              title="Pasta de Downloads"
+              aria-label="Pasta de Downloads"
+              className={`flex items-center justify-center gap-2 p-2.5 md:px-4 md:py-2 rounded-lg text-xs font-semibold transition ${
                 activeTab === 'downloads'
                   ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/25'
                   : 'text-slate-300 hover:bg-slate-800'
               }`}
             >
-              <Download className="w-4 h-4" />
-              Pasta de Downloads
+              <Download className="w-4 h-4 shrink-0" />
+              <span className="hidden md:inline">Pasta de Downloads</span>
             </button>
 
             <button
@@ -196,26 +198,32 @@ export const App: React.FC = () => {
                 setCurrentParentPath('');
                 setActiveScan(null);
               }}
-              className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-semibold transition ${
+              title="Editar Bibliotecas (7 Pontos)"
+              aria-label="Editar Bibliotecas (7 Pontos)"
+              className={`flex items-center justify-center gap-2 p-2.5 md:px-4 md:py-2 rounded-lg text-xs font-semibold transition ${
                 activeTab === 'libraries'
                   ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/25'
                   : 'text-slate-300 hover:bg-slate-800'
               }`}
             >
-              <Library className="w-4 h-4" />
-              Editar Bibliotecas (7 Pontos)
+              <Library className="w-4 h-4 shrink-0" />
+              <span className="hidden md:inline">
+                Editar Bibliotecas (7 Pontos)
+              </span>
             </button>
 
             <button
               onClick={() => setActiveTab('templates')}
-              className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-semibold transition ${
+              title="Templates & Amostragem"
+              aria-label="Templates & Amostragem"
+              className={`flex items-center justify-center gap-2 p-2.5 md:px-4 md:py-2 rounded-lg text-xs font-semibold transition ${
                 activeTab === 'templates'
                   ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/25'
                   : 'text-slate-300 hover:bg-slate-800'
               }`}
             >
-              <Settings className="w-4 h-4" />
-              Templates & Amostragem
+              <Settings className="w-4 h-4 shrink-0" />
+              <span className="hidden md:inline">Templates & Amostragem</span>
             </button>
           </nav>
         </div>

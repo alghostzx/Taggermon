@@ -499,7 +499,21 @@ describe('UI: React Application, ClusterEditor, COV Remote Protocol & TemplateMa
   it('navigates between Libraries tab (7 mount points) and Templates & Amostragem tab with random heuristic suggestions and collapsible sidebars', async () => {
     render(<App />);
 
-    // 0. Test collapsing and re-opening the Downloads explorer sidebar (starts open by default)
+    // 0. Verify responsive top navigation buttons collapse text to icon-only on narrow screens (< md)
+    const downloadsNavBtn = screen.getByRole('button', {
+      name: /Pasta de Downloads/i,
+    });
+    const librariesNavBtn = screen.getByRole('button', {
+      name: /Editar Bibliotecas \(7 Pontos\)/i,
+    });
+    const templatesNavBtn = screen.getByRole('button', {
+      name: /Templates & Amostragem/i,
+    });
+    expect(downloadsNavBtn.querySelector('span.hidden.md\\:inline')).not.toBeNull();
+    expect(librariesNavBtn.querySelector('span.hidden.md\\:inline')).not.toBeNull();
+    expect(templatesNavBtn.querySelector('span.hidden.md\\:inline')).not.toBeNull();
+
+    // Test collapsing and re-opening the Downloads explorer sidebar (starts open by default)
     await waitFor(() => {
       expect(screen.getByText('Clusters em Downloads')).toBeInTheDocument();
     });

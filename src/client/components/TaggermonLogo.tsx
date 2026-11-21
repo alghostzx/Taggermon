@@ -12,7 +12,7 @@ export const TaggermonLogo: React.FC<{ className?: string }> = ({
       <img
         src="/logo-srcery.png"
         alt="Taggermon"
-        className="h-11 w-auto object-contain block"
+        className="h-9 sm:h-11 w-auto object-contain block"
         draggable={false}
       />
     </div>
