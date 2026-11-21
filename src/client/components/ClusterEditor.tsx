@@ -473,9 +473,9 @@ export const ClusterEditor: React.FC<ClusterEditorProps> = ({
   return (
     <div className="space-y-6">
       {/* Header Bar: Cluster Title & Media Type Switcher */}
-      <div className="bg-slate-900/90 border border-slate-800 rounded-xl p-5 flex flex-wrap items-start justify-between gap-4">
-        <div className="min-w-0 flex-1">
-          <div className="flex flex-wrap items-center gap-2">
+      <div className="bg-slate-900/90 border border-slate-800 rounded-xl p-5 space-y-3">
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <div className="flex flex-wrap items-center gap-2.5 min-w-[240px] flex-1">
             <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 shrink-0">
               {scan.sourceRoot === 'downloads' ? 'Download' : 'Biblioteca'}
             </span>
@@ -483,52 +483,53 @@ export const ClusterEditor: React.FC<ClusterEditorProps> = ({
               {scan.clusterName}
             </h2>
           </div>
-          <p className="text-xs text-slate-400 font-mono mt-1 break-all">
-            Origem: {scan.clusterRelativePath} → Destino:{' '}
-            <span className="text-indigo-400">{meta.defaultMountPath}</span>
-          </p>
-        </div>
 
-        <div className="flex flex-wrap items-center gap-3">
-          <div className="flex items-center gap-2">
-            <label className="text-xs font-medium text-slate-400">
-              Tipo de Mídia do Cluster:
-            </label>
-            <select
-              value={mediaType}
-              onChange={(e) => onChangeMediaType(e.target.value as MediaType)}
-              className="px-3 py-1.5 rounded-lg bg-slate-950 border border-slate-700 text-sm font-medium text-white focus:border-indigo-500 focus:outline-none"
-            >
-              {ALL_MEDIA_TYPES.map((mt) => (
-                <option key={mt} value={mt}>
-                  {MEDIA_TYPES_CONFIG[mt].label}
-                </option>
-              ))}
-            </select>
-          </div>
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="flex items-center gap-2">
+              <label className="text-xs font-medium text-slate-400">
+                Tipo de Mídia do Cluster:
+              </label>
+              <select
+                value={mediaType}
+                onChange={(e) => onChangeMediaType(e.target.value as MediaType)}
+                className="px-3 py-1.5 rounded-lg bg-slate-950 border border-slate-700 text-sm font-medium text-white focus:border-indigo-500 focus:outline-none"
+              >
+                {ALL_MEDIA_TYPES.map((mt) => (
+                  <option key={mt} value={mt}>
+                    {MEDIA_TYPES_CONFIG[mt].label}
+                  </option>
+                ))}
+              </select>
+            </div>
 
-          <button
-            type="button"
-            onClick={() => setShowExtractTool(!showExtractTool)}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-medium transition"
-          >
-            <Wand2 className="w-3.5 h-3.5 text-amber-400" />
-            Extrair do Nome do Arquivo
-          </button>
-
-          {fileLevelFields.some((f) =>
-            ['track', 'episode', 'number'].includes(f.key)
-          ) && (
             <button
               type="button"
-              onClick={handleAutoNumber}
+              onClick={() => setShowExtractTool(!showExtractTool)}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-medium transition"
             >
-              <Hash className="w-3.5 h-3.5 text-indigo-400" />
-              Auto-Numerar (1..{scan.mediaFiles.length})
+              <Wand2 className="w-3.5 h-3.5 text-amber-400" />
+              Extrair do Nome do Arquivo
             </button>
-          )}
+
+            {fileLevelFields.some((f) =>
+              ['track', 'episode', 'number'].includes(f.key)
+            ) && (
+              <button
+                type="button"
+                onClick={handleAutoNumber}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-medium transition"
+              >
+                <Hash className="w-3.5 h-3.5 text-indigo-400" />
+                Auto-Numerar (1..{scan.mediaFiles.length})
+              </button>
+            )}
+          </div>
         </div>
+
+        <p className="text-xs text-slate-400 font-mono break-words pt-2 border-t border-slate-800/80">
+          Origem: <span className="text-slate-200">{scan.clusterRelativePath}</span> → Destino:{' '}
+          <span className="text-indigo-400">{meta.defaultMountPath}</span>
+        </p>
       </div>
 
       {/* Extract from Filename Pattern Tool */}
@@ -633,7 +634,7 @@ export const ClusterEditor: React.FC<ClusterEditorProps> = ({
           <h3 className="text-sm font-semibold text-white">
             Dados Comuns do Cluster (Aplicados a todos os arquivos da pasta)
           </h3>
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {clusterLevelFields.map((field) => (
               <div key={field.key} className="space-y-1">
                 <label className="block text-xs font-medium text-slate-400">
@@ -643,6 +644,7 @@ export const ClusterEditor: React.FC<ClusterEditorProps> = ({
                 <input
                   type="text"
                   value={clusterTags[field.key] || ''}
+                  title={clusterTags[field.key] || ''}
                   onChange={(e) =>
                     handleClusterTagChange(field.key, e.target.value)
                   }
@@ -677,26 +679,31 @@ export const ClusterEditor: React.FC<ClusterEditorProps> = ({
 
       {/* Per-File Table & Live Path Previews */}
       <div className="bg-slate-900/90 border border-slate-800 rounded-xl overflow-hidden">
-        <div className="px-5 py-4 border-b border-slate-800 flex flex-wrap items-center justify-between gap-2">
+        <div className="px-5 py-4 border-b border-slate-800 space-y-1">
           <h3 className="text-sm font-semibold text-white">
             Arquivos de Mídia ({scan.mediaFiles.length}) & Preview de Caminho/Nome Final
           </h3>
-          <span className="text-xs font-mono text-slate-400 break-all">
-            Template: {currentTemplate?.pathTemplate}/{currentTemplate?.filenameTemplate}
-          </span>
+          <div className="text-xs font-mono text-slate-400 break-words">
+            Template: <span className="text-slate-300">{currentTemplate?.pathTemplate}/{currentTemplate?.filenameTemplate}</span>
+          </div>
         </div>
 
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse">
             <thead>
               <tr className="border-b border-slate-800 bg-slate-950/60 text-[11px] font-semibold uppercase tracking-wider text-slate-400">
-                <th className="py-3 px-4 min-w-[220px]">Arquivo Atual</th>
+                <th className="py-3 px-4 w-[24%]">Arquivo Atual</th>
                 {fileLevelFields.map((field) => (
-                  <th key={field.key} className="py-3 px-3">
+                  <th
+                    key={field.key}
+                    className={`py-3 px-2.5 ${
+                      field.isNumeric ? 'w-20' : 'w-[28%]'
+                    }`}
+                  >
                     {field.label} ({`{${field.key}}`})
                   </th>
                 ))}
-                <th className="py-3 px-4 min-w-[280px]">
+                <th className="py-3 px-4 w-[34%]">
                   Preview Destino na Biblioteca
                 </th>
               </tr>
@@ -720,8 +727,8 @@ export const ClusterEditor: React.FC<ClusterEditorProps> = ({
                     key={file.relativePath}
                     className="hover:bg-slate-800/30 transition align-top"
                   >
-                    <td className="py-2.5 px-4 font-mono text-slate-300">
-                      <div className="break-all leading-relaxed">
+                    <td className="py-3 px-4 font-mono text-slate-300">
+                      <div className="break-words [overflow-wrap:anywhere] leading-relaxed">
                         {file.relativePath}
                       </div>
                       {file.needsConversionToCbz && (
@@ -736,32 +743,57 @@ export const ClusterEditor: React.FC<ClusterEditorProps> = ({
                       )}
                     </td>
 
-                    {fileLevelFields.map((field) => (
-                      <td key={field.key} className="py-2 px-3">
-                        <input
-                          type="text"
-                          value={fTags[field.key] || ''}
-                          onChange={(e) =>
-                            handleFileTagChange(
-                              file.relativePath,
-                              field.key,
-                              e.target.value
-                            )
-                          }
-                          placeholder={field.placeholder}
-                          className={`px-2.5 py-1.5 rounded bg-slate-950 border border-slate-700 text-xs text-white focus:border-indigo-500 focus:outline-none ${
-                            field.isNumeric
-                              ? 'w-20 font-mono'
-                              : 'w-full min-w-[180px]'
-                          }`}
-                        />
-                      </td>
-                    ))}
+                    {fileLevelFields.map((field) => {
+                      const val = fTags[field.key] || '';
+                      if (field.isNumeric) {
+                        return (
+                          <td key={field.key} className="py-2.5 px-2.5">
+                            <input
+                              type="text"
+                              value={val}
+                              title={val}
+                              onChange={(e) =>
+                                handleFileTagChange(
+                                  file.relativePath,
+                                  field.key,
+                                  e.target.value
+                                )
+                              }
+                              placeholder={field.placeholder}
+                              className="w-16 px-2.5 py-1.5 rounded bg-slate-950 border border-slate-700 text-xs font-mono text-white focus:border-indigo-500 focus:outline-none"
+                            />
+                          </td>
+                        );
+                      }
 
-                    <td className="py-2.5 px-4 font-mono">
+                      const rowCount = Math.max(
+                        1,
+                        Math.min(4, Math.ceil((val.length || 1) / 28))
+                      );
+                      return (
+                        <td key={field.key} className="py-2.5 px-2.5">
+                          <textarea
+                            rows={rowCount}
+                            value={val}
+                            title={val}
+                            onChange={(e) =>
+                              handleFileTagChange(
+                                file.relativePath,
+                                field.key,
+                                e.target.value.replace(/\r?\n/g, ' ')
+                              )
+                            }
+                            placeholder={field.placeholder}
+                            className="w-full min-w-[180px] px-2.5 py-1.5 rounded bg-slate-950 border border-slate-700 text-xs text-white focus:border-indigo-500 focus:outline-none resize-y leading-snug"
+                          />
+                        </td>
+                      );
+                    })}
+
+                    <td className="py-3 px-4 font-mono">
                       <div className="flex items-start gap-2">
                         <ArrowRight className="w-3.5 h-3.5 text-slate-500 shrink-0 mt-1" />
-                        <div className="min-w-0 flex-1 space-y-0.5 break-all">
+                        <div className="min-w-0 flex-1 space-y-0.5 break-words [overflow-wrap:anywhere]">
                           {previewFolder && (
                             <div className="text-[11px] text-slate-400 leading-snug">
                               {meta.defaultMountPath}/{previewFolder}/
@@ -944,11 +976,11 @@ export const ClusterEditor: React.FC<ClusterEditorProps> = ({
                 <div className="min-w-0 flex-1">
                   <div className="font-mono text-rose-300 break-words leading-snug">
                     {item.tagKey}:{' '}
-                    <span className="text-slate-300 break-all">
+                    <span className="text-slate-300 break-words">
                       {item.value}
                     </span>
                   </div>
-                  <div className="text-[10px] text-slate-500 break-all mt-0.5">
+                  <div className="text-[10px] text-slate-500 break-words mt-0.5">
                     {item.filename}
                   </div>
                 </div>
@@ -986,8 +1018,8 @@ export const ClusterEditor: React.FC<ClusterEditorProps> = ({
                 key={extra.relativePath}
                 className="flex items-center justify-between gap-3 p-2.5 rounded-lg bg-slate-950 border border-slate-800 text-xs"
               >
-                <div className="min-w-0 flex-1">
-                  <div className="font-mono text-slate-200 break-all leading-snug">
+                <div className="min-w-[180px] flex-1">
+                  <div className="font-mono text-slate-200 break-words leading-snug">
                     {extra.relativePath}
                   </div>
                   <div className="text-[11px] text-slate-400 mt-0.5">

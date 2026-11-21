@@ -363,7 +363,7 @@ export const CoverSection: React.FC<CoverPickerModalProps> = ({
                 className="w-16 h-16 object-cover rounded bg-slate-900 shrink-0"
               />
               <div className="min-w-0 flex-1">
-                <div className="text-xs font-medium text-slate-200 break-all leading-snug">
+                <div className="text-xs font-medium text-slate-200 break-words leading-snug">
                   {img.relativePath}
                 </div>
                 <div className="text-[11px] text-emerald-400 font-mono mt-0.5">

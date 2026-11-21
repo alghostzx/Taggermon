@@ -233,7 +233,7 @@ export const App: React.FC = () => {
             {/* Left Sidebar: Folder / Cluster Navigator */}
             <aside
               className={`${
-                wideSidebar ? 'lg:col-span-5' : 'lg:col-span-4'
+                wideSidebar ? 'lg:col-span-5' : 'lg:col-span-3'
               } space-y-4 transition-all`}
             >
               {activeTab === 'libraries' && (
@@ -267,14 +267,14 @@ export const App: React.FC = () => {
               )}
 
               <div className="bg-slate-900/90 border border-slate-800 rounded-xl p-4 space-y-3">
-                <div className="flex items-start justify-between gap-2">
-                  <div className="min-w-0 flex-1">
+                <div className="flex flex-wrap items-start justify-between gap-2">
+                  <div className="min-w-[160px] flex-1">
                     <h2 className="text-xs font-bold uppercase tracking-wider text-slate-300">
                       {activeTab === 'downloads'
                         ? 'Clusters em Downloads'
                         : `Biblioteca: ${MEDIA_TYPES_CONFIG[selectedLibrarySource].label}`}
                     </h2>
-                    <p className="text-[11px] font-mono text-slate-500 break-all">
+                    <p className="text-[11px] font-mono text-slate-500 break-words">
                       {mounts[currentSourceRoot] || `/${currentSourceRoot}`}
                     </p>
                   </div>
@@ -330,7 +330,7 @@ export const App: React.FC = () => {
                         <ChevronRight className="w-3 h-3 text-slate-600 shrink-0" />
                         <button
                           onClick={() => setCurrentParentPath(subPath)}
-                          className="hover:text-indigo-400 font-mono break-all text-left"
+                          className="hover:text-indigo-400 font-mono break-words text-left"
                         >
                           {seg}
                         </button>
@@ -413,7 +413,7 @@ export const App: React.FC = () => {
             {/* Right Workspace: Cluster Tag & Path Editor */}
             <section
               className={`${
-                wideSidebar ? 'lg:col-span-7' : 'lg:col-span-8'
+                wideSidebar ? 'lg:col-span-7' : 'lg:col-span-9'
               } transition-all`}
             >
               {loadingCluster ? (
