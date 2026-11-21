@@ -473,17 +473,17 @@ export const ClusterEditor: React.FC<ClusterEditorProps> = ({
   return (
     <div className="space-y-6">
       {/* Header Bar: Cluster Title & Media Type Switcher */}
-      <div className="bg-slate-900/90 border border-slate-800 rounded-xl p-5 flex flex-wrap items-center justify-between gap-4">
-        <div>
-          <div className="flex items-center gap-2">
-            <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
+      <div className="bg-slate-900/90 border border-slate-800 rounded-xl p-5 flex flex-wrap items-start justify-between gap-4">
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 shrink-0">
               {scan.sourceRoot === 'downloads' ? 'Download' : 'Biblioteca'}
             </span>
-            <h2 className="text-lg font-bold text-white truncate">
+            <h2 className="text-lg font-bold text-white break-words">
               {scan.clusterName}
             </h2>
           </div>
-          <p className="text-xs text-slate-400 font-mono mt-1">
+          <p className="text-xs text-slate-400 font-mono mt-1 break-all">
             Origem: {scan.clusterRelativePath} → Destino:{' '}
             <span className="text-indigo-400">{meta.defaultMountPath}</span>
           </p>
@@ -677,11 +677,11 @@ export const ClusterEditor: React.FC<ClusterEditorProps> = ({
 
       {/* Per-File Table & Live Path Previews */}
       <div className="bg-slate-900/90 border border-slate-800 rounded-xl overflow-hidden">
-        <div className="px-5 py-4 border-b border-slate-800 flex items-center justify-between">
+        <div className="px-5 py-4 border-b border-slate-800 flex flex-wrap items-center justify-between gap-2">
           <h3 className="text-sm font-semibold text-white">
             Arquivos de Mídia ({scan.mediaFiles.length}) & Preview de Caminho/Nome Final
           </h3>
-          <span className="text-xs font-mono text-slate-400">
+          <span className="text-xs font-mono text-slate-400 break-all">
             Template: {currentTemplate?.pathTemplate}/{currentTemplate?.filenameTemplate}
           </span>
         </div>
@@ -690,35 +690,47 @@ export const ClusterEditor: React.FC<ClusterEditorProps> = ({
           <table className="w-full text-left border-collapse">
             <thead>
               <tr className="border-b border-slate-800 bg-slate-950/60 text-[11px] font-semibold uppercase tracking-wider text-slate-400">
-                <th className="py-3 px-4">Arquivo Atual</th>
+                <th className="py-3 px-4 min-w-[220px]">Arquivo Atual</th>
                 {fileLevelFields.map((field) => (
                   <th key={field.key} className="py-3 px-3">
                     {field.label} ({`{${field.key}}`})
                   </th>
                 ))}
-                <th className="py-3 px-4">Preview Destino na Biblioteca</th>
+                <th className="py-3 px-4 min-w-[280px]">
+                  Preview Destino na Biblioteca
+                </th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-800/70 text-xs">
               {scan.mediaFiles.map((file) => {
                 const fTags = fileTagsMap[file.relativePath] || {};
                 const previewDest = destPreviews[file.relativePath] || '...';
+                const lastSlashIdx = previewDest.lastIndexOf('/');
+                const previewFolder =
+                  lastSlashIdx !== -1
+                    ? previewDest.slice(0, lastSlashIdx)
+                    : '';
+                const previewFile =
+                  lastSlashIdx !== -1
+                    ? previewDest.slice(lastSlashIdx + 1)
+                    : previewDest;
+
                 return (
                   <tr
                     key={file.relativePath}
-                    className="hover:bg-slate-800/30 transition"
+                    className="hover:bg-slate-800/30 transition align-top"
                   >
-                    <td className="py-2.5 px-4 font-mono text-slate-300 max-w-[240px] truncate">
-                      <div title={file.relativePath} className="truncate">
-                        {file.filename}
+                    <td className="py-2.5 px-4 font-mono text-slate-300">
+                      <div className="break-all leading-relaxed">
+                        {file.relativePath}
                       </div>
                       {file.needsConversionToCbz && (
-                        <span className="inline-block mt-0.5 px-1.5 py-0.2 rounded text-[10px] bg-indigo-500/20 text-indigo-300">
+                        <span className="inline-block mt-1 px-1.5 py-0.5 rounded text-[10px] bg-indigo-500/20 text-indigo-300">
                           Converter → .cbz
                         </span>
                       )}
                       {file.isPdfNoInternalTags && (
-                        <span className="inline-block mt-0.5 px-1.5 py-0.2 rounded text-[10px] bg-amber-500/20 text-amber-300">
+                        <span className="inline-block mt-1 px-1.5 py-0.5 rounded text-[10px] bg-amber-500/20 text-amber-300">
                           PDF (Somente Caminho/Nome)
                         </span>
                       )}
@@ -738,19 +750,27 @@ export const ClusterEditor: React.FC<ClusterEditorProps> = ({
                           }
                           placeholder={field.placeholder}
                           className={`px-2.5 py-1.5 rounded bg-slate-950 border border-slate-700 text-xs text-white focus:border-indigo-500 focus:outline-none ${
-                            field.isNumeric ? 'w-20 font-mono' : 'w-full min-w-[160px]'
+                            field.isNumeric
+                              ? 'w-20 font-mono'
+                              : 'w-full min-w-[180px]'
                           }`}
                         />
                       </td>
                     ))}
 
-                    <td className="py-2.5 px-4 font-mono text-emerald-400 max-w-[340px]">
-                      <div
-                        className="flex items-center gap-1.5 truncate"
-                        title={`${meta.defaultMountPath}/${previewDest}`}
-                      >
-                        <ArrowRight className="w-3.5 h-3.5 text-slate-500 shrink-0" />
-                        <span className="truncate">{previewDest}</span>
+                    <td className="py-2.5 px-4 font-mono">
+                      <div className="flex items-start gap-2">
+                        <ArrowRight className="w-3.5 h-3.5 text-slate-500 shrink-0 mt-1" />
+                        <div className="min-w-0 flex-1 space-y-0.5 break-all">
+                          {previewFolder && (
+                            <div className="text-[11px] text-slate-400 leading-snug">
+                              {meta.defaultMountPath}/{previewFolder}/
+                            </div>
+                          )}
+                          <div className="text-emerald-400 font-medium leading-snug">
+                            {previewFile}
+                          </div>
+                        </div>
                       </div>
                     </td>
                   </tr>
@@ -922,11 +942,13 @@ export const ClusterEditor: React.FC<ClusterEditorProps> = ({
                   className="mt-0.5 rounded border-slate-700 bg-slate-900 text-rose-600"
                 />
                 <div className="min-w-0 flex-1">
-                  <div className="font-mono text-rose-300 truncate">
+                  <div className="font-mono text-rose-300 break-words leading-snug">
                     {item.tagKey}:{' '}
-                    <span className="text-slate-300">{item.value}</span>
+                    <span className="text-slate-300 break-all">
+                      {item.value}
+                    </span>
                   </div>
-                  <div className="text-[10px] text-slate-500 truncate">
+                  <div className="text-[10px] text-slate-500 break-all mt-0.5">
                     {item.filename}
                   </div>
                 </div>
@@ -965,10 +987,10 @@ export const ClusterEditor: React.FC<ClusterEditorProps> = ({
                 className="flex items-center justify-between gap-3 p-2.5 rounded-lg bg-slate-950 border border-slate-800 text-xs"
               >
                 <div className="min-w-0 flex-1">
-                  <div className="font-mono text-slate-200 truncate">
+                  <div className="font-mono text-slate-200 break-all leading-snug">
                     {extra.relativePath}
                   </div>
-                  <div className="text-[11px] text-slate-400">
+                  <div className="text-[11px] text-slate-400 mt-0.5">
                     {(extra.sizeBytes / 1024).toFixed(1)} KB
                     {extra.isImage && extra.imageWidth
                       ? ` • Imagem ${extra.imageWidth}×${extra.imageHeight}px (${extra.imageFormat?.toUpperCase()})`

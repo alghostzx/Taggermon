@@ -52,6 +52,7 @@ export const App: React.FC = () => {
 
   const [activeScan, setActiveScan] = useState<ClusterScanResult | null>(null);
   const [loadingCluster, setLoadingCluster] = useState(false);
+  const [wideSidebar, setWideSidebar] = useState(false);
 
   const currentSourceRoot: 'downloads' | MediaType =
     activeTab === 'libraries' ? selectedLibrarySource : 'downloads';
@@ -150,7 +151,7 @@ export const App: React.FC = () => {
     <div className="min-h-screen flex flex-col bg-slate-950 text-slate-100">
       {/* Top Navigation Bar */}
       <header className="border-b border-slate-800 bg-slate-900/80 backdrop-blur sticky top-0 z-20">
-        <div className="max-w-[1600px] mx-auto px-6 h-16 flex items-center justify-between gap-4">
+        <div className="w-full max-w-[1920px] mx-auto px-6 h-16 flex items-center justify-between gap-4">
           <div className="flex items-center gap-3">
             <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center shadow-lg shadow-indigo-500/20">
               <Tags className="w-5 h-5 text-white" />
@@ -214,7 +215,7 @@ export const App: React.FC = () => {
       </header>
 
       {/* Main Content Area */}
-      <main className="flex-1 max-w-[1600px] w-full mx-auto px-6 py-6">
+      <main className="flex-1 w-full max-w-[1920px] mx-auto px-6 py-6">
         {activeTab === 'templates' ? (
           Object.keys(templates).length > 0 && (
             <TemplateManager
@@ -230,7 +231,11 @@ export const App: React.FC = () => {
         ) : (
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
             {/* Left Sidebar: Folder / Cluster Navigator */}
-            <aside className="lg:col-span-3 space-y-4">
+            <aside
+              className={`${
+                wideSidebar ? 'lg:col-span-5' : 'lg:col-span-4'
+              } space-y-4 transition-all`}
+            >
               {activeTab === 'libraries' && (
                 <div className="bg-slate-900/90 border border-slate-800 rounded-xl p-3 space-y-2">
                   <label className="block text-[11px] font-semibold uppercase tracking-wider text-slate-400">
@@ -252,7 +257,7 @@ export const App: React.FC = () => {
                         }`}
                       >
                         {getMediaIcon(mt)}
-                        <span className="truncate">
+                        <span className="break-words text-left">
                           {MEDIA_TYPES_CONFIG[mt].label}
                         </span>
                       </button>
@@ -262,30 +267,40 @@ export const App: React.FC = () => {
               )}
 
               <div className="bg-slate-900/90 border border-slate-800 rounded-xl p-4 space-y-3">
-                <div className="flex items-center justify-between">
-                  <div>
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0 flex-1">
                     <h2 className="text-xs font-bold uppercase tracking-wider text-slate-300">
                       {activeTab === 'downloads'
                         ? 'Clusters em Downloads'
                         : `Biblioteca: ${MEDIA_TYPES_CONFIG[selectedLibrarySource].label}`}
                     </h2>
-                    <p className="text-[11px] font-mono text-slate-500 truncate">
+                    <p className="text-[11px] font-mono text-slate-500 break-all">
                       {mounts[currentSourceRoot] || `/${currentSourceRoot}`}
                     </p>
                   </div>
-                  <button
-                    onClick={() =>
-                      fetchFolders(currentSourceRoot, currentParentPath)
-                    }
-                    className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300"
-                    title="Atualizar pastas"
-                  >
-                    <RefreshCw
-                      className={`w-3.5 h-3.5 ${
-                        loadingFolders ? 'animate-spin' : ''
-                      }`}
-                    />
-                  </button>
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => setWideSidebar(!wideSidebar)}
+                      className="px-2 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-[11px] text-slate-300"
+                      title="Alternar largura da barra lateral de pastas"
+                    >
+                      {wideSidebar ? '⇤ Reduzir' : '⇔ Expandir'}
+                    </button>
+                    <button
+                      onClick={() =>
+                        fetchFolders(currentSourceRoot, currentParentPath)
+                      }
+                      className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300"
+                      title="Atualizar pastas"
+                    >
+                      <RefreshCw
+                        className={`w-3.5 h-3.5 ${
+                          loadingFolders ? 'animate-spin' : ''
+                        }`}
+                      />
+                    </button>
+                  </div>
                 </div>
 
                 {/* Search filter */}
@@ -312,10 +327,10 @@ export const App: React.FC = () => {
                     const subPath = breadcrumbs.slice(0, i + 1).join('/');
                     return (
                       <React.Fragment key={subPath}>
-                        <ChevronRight className="w-3 h-3 text-slate-600" />
+                        <ChevronRight className="w-3 h-3 text-slate-600 shrink-0" />
                         <button
                           onClick={() => setCurrentParentPath(subPath)}
-                          className="hover:text-indigo-400 font-mono truncate max-w-[110px]"
+                          className="hover:text-indigo-400 font-mono break-all text-left"
                         >
                           {seg}
                         </button>
@@ -325,7 +340,7 @@ export const App: React.FC = () => {
                 </div>
 
                 {/* Folder List */}
-                <div className="space-y-1.5 max-h-[62vh] overflow-y-auto pr-1">
+                <div className="space-y-1.5 max-h-[65vh] overflow-y-auto pr-1">
                   {filteredFolders.length === 0 ? (
                     <div className="p-6 text-center text-xs text-slate-500 border border-dashed border-slate-800 rounded-lg">
                       Nenhuma pasta encontrada neste nível.
@@ -337,7 +352,7 @@ export const App: React.FC = () => {
                       return (
                         <div
                           key={folder.relativePath}
-                          className={`p-2.5 rounded-lg border transition flex items-center justify-between gap-2 ${
+                          className={`p-2.5 rounded-lg border transition flex items-start justify-between gap-2 ${
                             isSelected
                               ? 'bg-indigo-950/40 border-indigo-500 text-white'
                               : 'bg-slate-950/70 border-slate-800/80 hover:border-slate-700 text-slate-300'
@@ -348,18 +363,18 @@ export const App: React.FC = () => {
                             onClick={() =>
                               handleOpenCluster(folder.relativePath)
                             }
-                            className="flex items-center gap-2.5 min-w-0 flex-1 text-left"
+                            className="flex items-start gap-2.5 min-w-0 flex-1 text-left"
                           >
                             {isSelected ? (
-                              <FolderOpen className="w-4 h-4 text-indigo-400 shrink-0" />
+                              <FolderOpen className="w-4 h-4 text-indigo-400 shrink-0 mt-0.5" />
                             ) : (
-                              <Folder className="w-4 h-4 text-slate-400 shrink-0" />
+                              <Folder className="w-4 h-4 text-slate-400 shrink-0 mt-0.5" />
                             )}
                             <div className="min-w-0 flex-1">
-                              <div className="text-xs font-medium truncate">
+                              <div className="text-xs font-medium break-words leading-snug">
                                 {folder.name}
                               </div>
-                              <div className="flex items-center gap-2 text-[10px] text-slate-400 mt-0.5">
+                              <div className="flex flex-wrap items-center gap-2 text-[10px] text-slate-400 mt-1">
                                 <span>{folder.fileCount} arq(s)</span>
                                 {folder.suggestedMediaType && (
                                   <span className="inline-flex items-center gap-1 text-indigo-300">
@@ -396,7 +411,11 @@ export const App: React.FC = () => {
             </aside>
 
             {/* Right Workspace: Cluster Tag & Path Editor */}
-            <section className="lg:col-span-9">
+            <section
+              className={`${
+                wideSidebar ? 'lg:col-span-7' : 'lg:col-span-8'
+              } transition-all`}
+            >
               {loadingCluster ? (
                 <div className="h-96 bg-slate-900/50 border border-slate-800 rounded-xl flex items-center justify-center text-sm text-slate-400">
                   Lendo arquivos, tags internas e metadados do cluster...

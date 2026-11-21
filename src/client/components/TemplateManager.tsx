@@ -724,7 +724,7 @@ export const TemplateManager: React.FC<TemplateManagerProps> = ({
                       <div className="font-medium text-slate-500">
                         Exemplo detectado na biblioteca:
                       </div>
-                      <div className="font-mono text-slate-300 truncate">
+                      <div className="font-mono text-slate-300 break-all leading-relaxed">
                         {sug.samplePreviews[0].originalPath}
                       </div>
                     </div>
