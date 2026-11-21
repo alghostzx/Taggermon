@@ -496,10 +496,25 @@ describe('UI: React Application, ClusterEditor, COV Remote Protocol & TemplateMa
     expect(screen.getByDisplayValue('pt-BR')).toBeInTheDocument();
   });
 
-  it('navigates between Libraries tab (7 mount points) and Templates & Amostragem tab with random heuristic suggestions', async () => {
+  it('navigates between Libraries tab (7 mount points) and Templates & Amostragem tab with random heuristic suggestions and collapsible sidebars', async () => {
     render(<App />);
 
-    // 1. Switch to "Editar Bibliotecas (7 Pontos)"
+    // 0. Test collapsing and re-opening the Downloads explorer sidebar (starts open by default)
+    await waitFor(() => {
+      expect(screen.getByText('Clusters em Downloads')).toBeInTheDocument();
+    });
+    fireEvent.click(
+      screen.getByTitle('Ocultar barra lateral do explorador de pastas')
+    );
+    expect(screen.queryByText('Clusters em Downloads')).not.toBeInTheDocument();
+    const reopenDownloadsBtn = screen.getByText(
+      /Mostrar Explorador de Downloads/i
+    );
+    expect(reopenDownloadsBtn).toBeInTheDocument();
+    fireEvent.click(reopenDownloadsBtn);
+    expect(screen.getByText('Clusters em Downloads')).toBeInTheDocument();
+
+    // 1. Switch to "Editar Bibliotecas (7 Pontos)" (starts open by default)
     fireEvent.click(screen.getByText(/Editar Bibliotecas \(7 Pontos\)/i));
     await waitFor(() => {
       expect(screen.getByText('Selecionar Biblioteca')).toBeInTheDocument();
@@ -511,13 +526,39 @@ describe('UI: React Application, ClusterEditor, COV Remote Protocol & TemplateMa
       expect(screen.getByText('Severance')).toBeInTheDocument();
     });
 
-    // 2. Switch to "Templates & Amostragem"
+    // Test collapsing and re-opening the Library explorer sidebar
+    fireEvent.click(
+      screen.getByTitle('Ocultar barra lateral do explorador de pastas')
+    );
+    expect(screen.queryByText('Selecionar Biblioteca')).not.toBeInTheDocument();
+    const reopenLibBtn = screen.getByText(
+      /Mostrar Explorador de Biblioteca \(Séries\)/i
+    );
+    fireEvent.click(reopenLibBtn);
+    expect(screen.getByText('Selecionar Biblioteca')).toBeInTheDocument();
+
+    // 2. Switch to "Templates & Amostragem" (sampling sidebar starts open by default)
     fireEvent.click(screen.getByText(/Templates & Amostragem/i));
     await waitFor(() => {
       expect(
         screen.getByText(/Template Único — Músicas/i)
       ).toBeInTheDocument();
+      expect(
+        screen.getByText(/Sugestões por Amostragem da Biblioteca/i)
+      ).toBeInTheDocument();
     });
+
+    // Test collapsing and re-opening the Template Sampling sidebar
+    fireEvent.click(
+      screen.getByTitle('Ocultar painel lateral de amostragem')
+    );
+    expect(
+      screen.queryByText(/Sugestões por Amostragem da Biblioteca/i)
+    ).not.toBeInTheDocument();
+    fireEvent.click(screen.getByText(/Mostrar Painel de Amostragem/i));
+    expect(
+      screen.getByText(/Sugestões por Amostragem da Biblioteca/i)
+    ).toBeInTheDocument();
 
     // Click "Detectar Sugestões da Biblioteca Existente (Por Amostragem)"
     fireEvent.click(

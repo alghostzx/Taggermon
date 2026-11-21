@@ -15,6 +15,8 @@ import {
   Film,
   Tv,
   Search,
+  PanelLeftClose,
+  PanelLeftOpen,
 } from 'lucide-react';
 import {
   ClusterScanResult,
@@ -53,6 +55,19 @@ export const App: React.FC = () => {
   const [activeScan, setActiveScan] = useState<ClusterScanResult | null>(null);
   const [loadingCluster, setLoadingCluster] = useState(false);
   const [wideSidebar, setWideSidebar] = useState(false);
+  const [downloadsSidebarOpen, setDownloadsSidebarOpen] = useState(true);
+  const [librariesSidebarOpen, setLibrariesSidebarOpen] = useState(true);
+
+  const isExplorerSidebarOpen =
+    activeTab === 'libraries' ? librariesSidebarOpen : downloadsSidebarOpen;
+
+  const setExplorerSidebarOpen = (open: boolean) => {
+    if (activeTab === 'libraries') {
+      setLibrariesSidebarOpen(open);
+    } else {
+      setDownloadsSidebarOpen(open);
+    }
+  };
 
   const currentSourceRoot: 'downloads' | MediaType =
     activeTab === 'libraries' ? selectedLibrarySource : 'downloads';
@@ -231,77 +246,88 @@ export const App: React.FC = () => {
         ) : (
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
             {/* Left Sidebar: Folder / Cluster Navigator */}
-            <aside
-              className={`${
-                wideSidebar ? 'lg:col-span-5' : 'lg:col-span-3'
-              } space-y-4 transition-all`}
-            >
-              {activeTab === 'libraries' && (
-                <div className="bg-slate-900/90 border border-slate-800 rounded-xl p-3 space-y-2">
-                  <label className="block text-[11px] font-semibold uppercase tracking-wider text-slate-400">
-                    Selecionar Biblioteca
-                  </label>
-                  <div className="grid grid-cols-2 gap-1.5">
-                    {ALL_MEDIA_TYPES.map((mt) => (
-                      <button
-                        key={mt}
-                        onClick={() => {
-                          setSelectedLibrarySource(mt);
-                          setCurrentParentPath('');
-                          setActiveScan(null);
-                        }}
-                        className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium transition ${
-                          selectedLibrarySource === mt
-                            ? 'bg-indigo-600 text-white'
-                            : 'bg-slate-950 text-slate-400 hover:bg-slate-800 hover:text-slate-200'
-                        }`}
-                      >
-                        {getMediaIcon(mt)}
-                        <span className="break-words text-left">
-                          {MEDIA_TYPES_CONFIG[mt].label}
-                        </span>
-                      </button>
-                    ))}
+            {isExplorerSidebarOpen && (
+              <aside
+                className={`${
+                  wideSidebar ? 'lg:col-span-5' : 'lg:col-span-3'
+                } space-y-4 transition-all`}
+              >
+                {activeTab === 'libraries' && (
+                  <div className="bg-slate-900/90 border border-slate-800 rounded-xl p-3 space-y-2">
+                    <label className="block text-[11px] font-semibold uppercase tracking-wider text-slate-400">
+                      Selecionar Biblioteca
+                    </label>
+                    <div className="grid grid-cols-2 gap-1.5">
+                      {ALL_MEDIA_TYPES.map((mt) => (
+                        <button
+                          key={mt}
+                          onClick={() => {
+                            setSelectedLibrarySource(mt);
+                            setCurrentParentPath('');
+                            setActiveScan(null);
+                          }}
+                          className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium transition ${
+                            selectedLibrarySource === mt
+                              ? 'bg-indigo-600 text-white'
+                              : 'bg-slate-950 text-slate-400 hover:bg-slate-800 hover:text-slate-200'
+                          }`}
+                        >
+                          {getMediaIcon(mt)}
+                          <span className="break-words text-left">
+                            {MEDIA_TYPES_CONFIG[mt].label}
+                          </span>
+                        </button>
+                      ))}
+                    </div>
                   </div>
-                </div>
-              )}
+                )}
 
-              <div className="bg-slate-900/90 border border-slate-800 rounded-xl p-4 space-y-3">
-                <div className="flex flex-wrap items-start justify-between gap-2">
-                  <div className="min-w-[160px] flex-1">
-                    <h2 className="text-xs font-bold uppercase tracking-wider text-slate-300">
-                      {activeTab === 'downloads'
-                        ? 'Clusters em Downloads'
-                        : `Biblioteca: ${MEDIA_TYPES_CONFIG[selectedLibrarySource].label}`}
-                    </h2>
-                    <p className="text-[11px] font-mono text-slate-500 break-words">
-                      {mounts[currentSourceRoot] || `/${currentSourceRoot}`}
-                    </p>
+                <div className="bg-slate-900/90 border border-slate-800 rounded-xl p-4 space-y-3">
+                  <div className="flex flex-wrap items-start justify-between gap-2">
+                    <div className="min-w-[140px] flex-1">
+                      <h2 className="text-xs font-bold uppercase tracking-wider text-slate-300">
+                        {activeTab === 'downloads'
+                          ? 'Clusters em Downloads'
+                          : `Biblioteca: ${MEDIA_TYPES_CONFIG[selectedLibrarySource].label}`}
+                      </h2>
+                      <p className="text-[11px] font-mono text-slate-500 break-words">
+                        {mounts[currentSourceRoot] || `/${currentSourceRoot}`}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      <button
+                        type="button"
+                        onClick={() => setWideSidebar(!wideSidebar)}
+                        className="px-2 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-[11px] text-slate-300"
+                        title="Alternar largura da barra lateral de pastas"
+                      >
+                        {wideSidebar ? '⇤ Reduzir' : '⇔ Expandir'}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          fetchFolders(currentSourceRoot, currentParentPath)
+                        }
+                        className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300"
+                        title="Atualizar pastas"
+                      >
+                        <RefreshCw
+                          className={`w-3.5 h-3.5 ${
+                            loadingFolders ? 'animate-spin' : ''
+                          }`}
+                        />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setExplorerSidebarOpen(false)}
+                        className="flex items-center gap-1 px-2 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-[11px] text-slate-300"
+                        title="Ocultar barra lateral do explorador de pastas"
+                      >
+                        <PanelLeftClose className="w-3.5 h-3.5" />
+                        <span>Ocultar</span>
+                      </button>
+                    </div>
                   </div>
-                  <div className="flex items-center gap-1.5 shrink-0">
-                    <button
-                      type="button"
-                      onClick={() => setWideSidebar(!wideSidebar)}
-                      className="px-2 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-[11px] text-slate-300"
-                      title="Alternar largura da barra lateral de pastas"
-                    >
-                      {wideSidebar ? '⇤ Reduzir' : '⇔ Expandir'}
-                    </button>
-                    <button
-                      onClick={() =>
-                        fetchFolders(currentSourceRoot, currentParentPath)
-                      }
-                      className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300"
-                      title="Atualizar pastas"
-                    >
-                      <RefreshCw
-                        className={`w-3.5 h-3.5 ${
-                          loadingFolders ? 'animate-spin' : ''
-                        }`}
-                      />
-                    </button>
-                  </div>
-                </div>
 
                 {/* Search filter */}
                 <div className="relative">
@@ -409,13 +435,36 @@ export const App: React.FC = () => {
                 </div>
               </div>
             </aside>
+            )}
 
             {/* Right Workspace: Cluster Tag & Path Editor */}
             <section
               className={`${
-                wideSidebar ? 'lg:col-span-7' : 'lg:col-span-9'
-              } transition-all`}
+                !isExplorerSidebarOpen
+                  ? 'lg:col-span-12'
+                  : wideSidebar
+                  ? 'lg:col-span-7'
+                  : 'lg:col-span-9'
+              } space-y-4 transition-all`}
             >
+              {!isExplorerSidebarOpen && (
+                <div className="flex items-center justify-between bg-slate-900/80 border border-slate-800 rounded-xl px-4 py-2.5">
+                  <button
+                    type="button"
+                    onClick={() => setExplorerSidebarOpen(true)}
+                    className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-indigo-600/20 border border-indigo-500/40 text-indigo-300 hover:bg-indigo-600/30 text-xs font-medium transition"
+                  >
+                    <PanelLeftOpen className="w-4 h-4" />
+                    Mostrar Explorador de{' '}
+                    {activeTab === 'downloads'
+                      ? 'Downloads'
+                      : `Biblioteca (${MEDIA_TYPES_CONFIG[selectedLibrarySource].label})`}
+                  </button>
+                  <span className="text-xs text-slate-400 font-mono">
+                    {mounts[currentSourceRoot] || `/${currentSourceRoot}`}
+                  </span>
+                </div>
+              )}
               {loadingCluster ? (
                 <div className="h-96 bg-slate-900/50 border border-slate-800 rounded-xl flex items-center justify-center text-sm text-slate-400">
                   Lendo arquivos, tags internas e metadados do cluster...
