@@ -13,6 +13,7 @@ COPY package.json package-lock.json ./
 RUN npm ci
 
 COPY tsconfig.json tsconfig.server.json vite.config.ts tailwind.config.js postcss.config.js ./
+COPY public ./public
 COPY src ./src
 
 RUN npm run build && npm prune --omit=dev
