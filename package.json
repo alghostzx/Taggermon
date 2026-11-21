@@ -2,6 +2,7 @@
   "name": "taggermon",
   "version": "1.0.0",
   "description": "All-purpose web media tag editor and library organizer for Music, Audiobooks, Books, Comics, Manga, Movies, and Series",
+  "license": "MIT",
   "type": "module",
   "scripts": {
     "dev:server": "tsx watch src/server/index.ts",

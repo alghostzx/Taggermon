@@ -692,18 +692,18 @@ export const ClusterEditor: React.FC<ClusterEditorProps> = ({
           <table className="w-full text-left border-collapse">
             <thead>
               <tr className="border-b border-slate-800 bg-slate-950/60 text-[11px] font-semibold uppercase tracking-wider text-slate-400">
-                <th className="py-3 px-4 w-[24%]">Arquivo Atual</th>
+                <th className="py-3 px-4 w-[18%]">Arquivo Atual</th>
                 {fileLevelFields.map((field) => (
                   <th
                     key={field.key}
-                    className={`py-3 px-2.5 ${
-                      field.isNumeric ? 'w-20' : 'w-[28%]'
+                    className={`py-3 px-2 ${
+                      field.isNumeric ? 'w-16' : 'w-[14%]'
                     }`}
                   >
                     {field.label} ({`{${field.key}}`})
                   </th>
                 ))}
-                <th className="py-3 px-4 w-[34%]">
+                <th className="py-3 px-4 w-[32%]">
                   Preview Destino na Biblioteca
                 </th>
               </tr>
@@ -768,10 +768,10 @@ export const ClusterEditor: React.FC<ClusterEditorProps> = ({
 
                       const rowCount = Math.max(
                         1,
-                        Math.min(4, Math.ceil((val.length || 1) / 28))
+                        Math.min(4, Math.ceil((val.length || 1) / 24))
                       );
                       return (
-                        <td key={field.key} className="py-2.5 px-2.5">
+                        <td key={field.key} className="py-2.5 px-2">
                           <textarea
                             rows={rowCount}
                             value={val}
@@ -784,7 +784,7 @@ export const ClusterEditor: React.FC<ClusterEditorProps> = ({
                               )
                             }
                             placeholder={field.placeholder}
-                            className="w-full min-w-[180px] px-2.5 py-1.5 rounded bg-slate-950 border border-slate-700 text-xs text-white focus:border-indigo-500 focus:outline-none resize-y leading-snug"
+                            className="w-full min-w-[125px] px-2.5 py-1.5 rounded bg-slate-950 border border-slate-700 text-xs text-white focus:border-indigo-500 focus:outline-none resize-y leading-snug"
                           />
                         </td>
                       );
