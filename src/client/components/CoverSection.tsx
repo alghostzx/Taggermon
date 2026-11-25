@@ -52,6 +52,8 @@ export const CoverSection: React.FC<CoverPickerModalProps> = ({
   const [covError, setCovError] = useState<string | null>(null);
   const [manualCovUrl, setManualCovUrl] = useState('');
   const covPopupRef = useRef<Window | null>(null);
+  const onSelectCoverRef = useRef(onSelectCover);
+  onSelectCoverRef.current = onSelectCover;
 
   // Listen for COV Remote Protocol (`remote.port=browser`) window.postMessage events
   useEffect(() => {
@@ -60,36 +62,55 @@ export const CoverSection: React.FC<CoverPickerModalProps> = ({
         return;
       }
 
-      const data = event.data;
+      let data: unknown = event.data;
       if (!data) return;
+
+      // covers.musichoarders.xyz sends `JSON.stringify({ type: "pick", action: "primary", bigCoverUrl, smallCoverUrl, ... })`
+      if (typeof data === 'string') {
+        const trimmed = data.trim();
+        if (trimmed.startsWith('{')) {
+          try {
+            data = JSON.parse(trimmed);
+          } catch {
+            return;
+          }
+        }
+      }
 
       // Extract cover URL from COV remote protocol message payload
       let pickedUrl = '';
       if (typeof data === 'string' && /^https?:\/\//i.test(data)) {
         pickedUrl = data;
-      } else if (typeof data === 'object') {
+      } else if (typeof data === 'object' && data !== null) {
+        const obj = data as Record<string, any>;
         pickedUrl =
-          data.url ||
-          data.bigUrl ||
-          data.image ||
-          data.cover?.bigUrl ||
-          data.cover?.url ||
-          data.data?.bigUrl ||
-          data.data?.url ||
+          obj.bigCoverUrl ||
+          obj.smallCoverUrl ||
+          obj.url ||
+          obj.bigUrl ||
+          obj.image ||
+          obj.cover?.bigCoverUrl ||
+          obj.cover?.bigUrl ||
+          obj.cover?.url ||
+          obj.data?.bigCoverUrl ||
+          obj.data?.bigUrl ||
+          obj.data?.url ||
           '';
       }
 
       if (pickedUrl && /^https?:\/\//i.test(pickedUrl)) {
-        // Close the COV puppet tab via protocol message `{ type: "close" }`
-        try {
-          if (covPopupRef.current && !covPopupRef.current.closed) {
-            covPopupRef.current.postMessage({ type: 'close' }, '*');
-            covPopupRef.current.close();
+        const ok = await inspectAndApplyCovUrl(pickedUrl);
+        if (ok) {
+          // Close the COV puppet tab via protocol message `{ type: "close" }`
+          try {
+            if (covPopupRef.current && !covPopupRef.current.closed) {
+              covPopupRef.current.postMessage({ type: 'close' }, '*');
+              covPopupRef.current.close();
+            }
+          } catch {
+            // ignore
           }
-        } catch {
-          // ignore
         }
-        await inspectAndApplyCovUrl(pickedUrl);
       }
     };
 
@@ -97,7 +118,7 @@ export const CoverSection: React.FC<CoverPickerModalProps> = ({
     return () => window.removeEventListener('message', handleMessage);
   }, []);
 
-  const inspectAndApplyCovUrl = async (imageUrl: string) => {
+  const inspectAndApplyCovUrl = async (imageUrl: string): Promise<boolean> => {
     setCovLoading(true);
     setCovError(null);
     setCovStatus('Baixando capa original sem downscale do COV...');
@@ -112,7 +133,7 @@ export const CoverSection: React.FC<CoverPickerModalProps> = ({
         throw new Error(err.error || 'Falha ao obter imagem do COV');
       }
       const info = await resp.json();
-      onSelectCover({
+      onSelectCoverRef.current({
         mode: 'cov_url',
         covImageUrl: imageUrl,
         previewUrl: info.dataUrl,
@@ -127,9 +148,19 @@ export const CoverSection: React.FC<CoverPickerModalProps> = ({
           info.sizeBytes / 1024
         ).toFixed(1)} KB)`
       );
+      return true;
     } catch (err) {
-      setCovError(err instanceof Error ? err.message : String(err));
+      const errMsg = err instanceof Error ? err.message : String(err);
+      setCovError(errMsg);
       setCovStatus(null);
+      try {
+        if (covPopupRef.current && !covPopupRef.current.closed) {
+          covPopupRef.current.postMessage({ type: 'error', text: errMsg }, '*');
+        }
+      } catch {
+        // ignore
+      }
+      return false;
     } finally {
       setCovLoading(false);
     }

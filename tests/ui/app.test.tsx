@@ -414,12 +414,16 @@ describe('UI: React Application, ClusterEditor, COV Remote Protocol & TemplateMa
     expect(openedCovUrl).toContain('album=The+Dark+Side+of+the+Moon');
 
     // Simulate user picking a 3000x3000 cover on covers.musichoarders.xyz via window.postMessage
+    // Real covers.musichoarders.xyz sends JSON.stringify({ type: 'pick', action: 'primary', bigCoverUrl, smallCoverUrl, ... })
     window.dispatchEvent(
       new MessageEvent('message', {
         origin: 'https://covers.musichoarders.xyz',
-        data: {
-          bigUrl: 'https://covers.musichoarders.xyz/highres_3000x3000.png',
-        },
+        data: JSON.stringify({
+          type: 'pick',
+          action: 'primary',
+          bigCoverUrl: 'https://covers.musichoarders.xyz/highres_3000x3000.png',
+          smallCoverUrl: 'https://covers.musichoarders.xyz/thumb_300x300.jpg',
+        }),
       })
     );
 
