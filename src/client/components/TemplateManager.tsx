@@ -10,6 +10,12 @@ import {
   Tag,
   PanelRightClose,
   PanelRightOpen,
+  Music,
+  Headphones,
+  BookOpen,
+  Layers,
+  Film,
+  Tv,
 } from 'lucide-react';
 import {
   DiscoveredTagSuggestion,
@@ -59,10 +65,28 @@ export const TemplateManager: React.FC<TemplateManagerProps> = ({
 
   const [loadingSuggestions, setLoadingSuggestions] = useState(false);
   const [sampleSize, setSampleSize] = useState<number>(40);
-  const [samplingSidebarOpen, setSamplingSidebarOpen] = useState(true);
+  const [samplingSidebarOpen, setSamplingSidebarOpen] = useState(false);
   const [suggestions, setSuggestions] = useState<TemplateSuggestion[] | null>(
     null
   );
+
+  const getMediaIcon = (type: MediaType) => {
+    switch (type) {
+      case 'music':
+        return <Music className="w-5 h-5 text-indigo-400 shrink-0" />;
+      case 'audiobooks':
+        return <Headphones className="w-5 h-5 text-amber-400 shrink-0" />;
+      case 'books':
+        return <BookOpen className="w-5 h-5 text-emerald-400 shrink-0" />;
+      case 'comics':
+      case 'manga':
+        return <Layers className="w-5 h-5 text-pink-400 shrink-0" />;
+      case 'movies':
+        return <Film className="w-5 h-5 text-cyan-400 shrink-0" />;
+      case 'series':
+        return <Tv className="w-5 h-5 text-purple-400 shrink-0" />;
+    }
+  };
   const [discoveredTags, setDiscoveredTags] = useState<
     DiscoveredTagSuggestion[]
   >([]);
@@ -251,16 +275,11 @@ export const TemplateManager: React.FC<TemplateManagerProps> = ({
           } bg-slate-900/90 border border-slate-800 rounded-xl p-6 space-y-6 transition-all`}
         >
           <div className="flex flex-wrap items-center justify-between gap-4">
-            <div>
-              <h2 className="text-lg font-semibold text-white">
-                Template Único — {meta.label}
-              </h2>
-              <p className="text-xs text-slate-400 mt-1">
-                Ponto de montagem:{' '}
-                <code className="text-indigo-400">{meta.defaultMountPath}</code>{' '}
-                ({meta.mountEnv})
-              </p>
-            </div>
+            <h2 className="text-lg font-semibold text-white flex items-center gap-2">
+              <span>Template -</span>
+              {getMediaIcon(selectedType)}
+              <span>{meta.label}</span>
+            </h2>
             <div className="flex flex-wrap items-center gap-2">
               <div className="flex items-center gap-1.5 bg-slate-950 border border-slate-800 rounded-lg px-2.5 py-1.5 text-xs">
                 <label
@@ -298,7 +317,7 @@ export const TemplateManager: React.FC<TemplateManagerProps> = ({
                 ) : (
                   <Sparkles className="w-4 h-4" />
                 )}
-                Detectar Sugestões da Biblioteca Existente (Por Amostragem)
+                Sugerir Templates
               </button>
               <button
                 type="button"
@@ -310,15 +329,15 @@ export const TemplateManager: React.FC<TemplateManagerProps> = ({
                 <Plus className="w-3.5 h-3.5" />
                 Aumentar Amostra (+40)
               </button>
-              {!samplingSidebarOpen && (
+              {!samplingSidebarOpen && suggestions !== null && (
                 <button
                   type="button"
                   onClick={() => setSamplingSidebarOpen(true)}
                   className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-medium transition"
-                  title="Mostrar barra lateral de amostragem e sugestões"
+                  title="Mostrar barra lateral de sugestões de template"
                 >
                   <PanelRightOpen className="w-3.5 h-3.5 text-amber-400" />
-                  Mostrar Painel de Amostragem
+                  Mostrar Sugestões
                 </button>
               )}
             </div>
@@ -584,7 +603,7 @@ export const TemplateManager: React.FC<TemplateManagerProps> = ({
             <div className="flex flex-wrap items-center justify-between gap-2">
               <div className="flex items-center gap-2 text-amber-400 font-semibold text-sm">
                 <FolderSearch className="w-5 h-5" />
-                <span>Sugestões por Amostragem da Biblioteca</span>
+                <span>Sugestões de Template</span>
               </div>
               <div className="flex items-center gap-1.5">
                 {suggestions && (
@@ -603,7 +622,7 @@ export const TemplateManager: React.FC<TemplateManagerProps> = ({
                   type="button"
                   onClick={() => setSamplingSidebarOpen(false)}
                   className="flex items-center gap-1 px-2 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-[11px] text-slate-300"
-                  title="Ocultar painel lateral de amostragem"
+                  title="Ocultar painel lateral de sugestões"
                 >
                   <PanelRightClose className="w-3.5 h-3.5" />
                   <span>Ocultar</span>
@@ -672,11 +691,8 @@ export const TemplateManager: React.FC<TemplateManagerProps> = ({
 
           {!suggestions ? (
             <div className="p-6 rounded-lg bg-slate-950/60 border border-dashed border-slate-800 text-center text-xs text-slate-500">
-              Clique em{' '}
-              <strong>
-                "Detectar Sugestões da Biblioteca Existente"
-              </strong>{' '}
-              para analisar sua biblioteca atual.
+              Clique em <strong>"Sugerir Templates"</strong> para analisar sua
+              biblioteca atual.
             </div>
           ) : suggestions.length === 0 ? (
             <div className="p-4 rounded-lg bg-slate-950 text-xs text-slate-400">

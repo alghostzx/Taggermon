@@ -511,13 +511,13 @@ describe('UI: React Application, ClusterEditor, COV Remote Protocol & TemplateMa
 
     // 0. Verify responsive top navigation buttons collapse text to icon-only on narrow screens (< md)
     const downloadsNavBtn = screen.getByRole('button', {
-      name: /Pasta de Downloads/i,
+      name: /^Downloads$/i,
     });
     const librariesNavBtn = screen.getByRole('button', {
-      name: /Editar Bibliotecas \(7 Pontos\)/i,
+      name: /^Bibliotecas$/i,
     });
     const templatesNavBtn = screen.getByRole('button', {
-      name: /Templates & Amostragem/i,
+      name: /^Templates$/i,
     });
     expect(downloadsNavBtn.querySelector('span.hidden.md\\:inline')).not.toBeNull();
     expect(librariesNavBtn.querySelector('span.hidden.md\\:inline')).not.toBeNull();
@@ -538,8 +538,8 @@ describe('UI: React Application, ClusterEditor, COV Remote Protocol & TemplateMa
     fireEvent.click(reopenDownloadsBtn);
     expect(screen.getByText('Clusters em Downloads')).toBeInTheDocument();
 
-    // 1. Switch to "Editar Bibliotecas (7 Pontos)" (starts open by default)
-    fireEvent.click(screen.getByText(/Editar Bibliotecas \(7 Pontos\)/i));
+    // 1. Switch to "Bibliotecas" (starts open by default)
+    fireEvent.click(librariesNavBtn);
     await waitFor(() => {
       expect(screen.getByText('Selecionar Biblioteca')).toBeInTheDocument();
     });
@@ -561,43 +561,38 @@ describe('UI: React Application, ClusterEditor, COV Remote Protocol & TemplateMa
     fireEvent.click(reopenLibBtn);
     expect(screen.getByText('Selecionar Biblioteca')).toBeInTheDocument();
 
-    // 2. Switch to "Templates & Amostragem" (sampling sidebar starts open by default)
-    fireEvent.click(screen.getByText(/Templates & Amostragem/i));
+    // 2. Switch to "Templates" (suggestions sidebar starts hidden by default)
+    fireEvent.click(templatesNavBtn);
     await waitFor(() => {
+      expect(screen.getByText('Template -')).toBeInTheDocument();
       expect(
-        screen.getByText(/Template Único — Músicas/i)
-      ).toBeInTheDocument();
-      expect(
-        screen.getByText(/Sugestões por Amostragem da Biblioteca/i)
-      ).toBeInTheDocument();
+        screen.queryByText(/Sugestões de Template/i)
+      ).not.toBeInTheDocument();
     });
 
-    // Test collapsing and re-opening the Template Sampling sidebar
-    fireEvent.click(
-      screen.getByTitle('Ocultar painel lateral de amostragem')
-    );
-    expect(
-      screen.queryByText(/Sugestões por Amostragem da Biblioteca/i)
-    ).not.toBeInTheDocument();
-    fireEvent.click(screen.getByText(/Mostrar Painel de Amostragem/i));
-    expect(
-      screen.getByText(/Sugestões por Amostragem da Biblioteca/i)
-    ).toBeInTheDocument();
-
-    // Click "Detectar Sugestões da Biblioteca Existente (Por Amostragem)"
-    fireEvent.click(
-      screen.getByText(
-        /Detectar Sugestões da Biblioteca Existente \(Por Amostragem\)/i
-      )
-    );
+    // Click "Sugerir Templates" -> automatically opens the "Sugestões de Template" sidebar
+    fireEvent.click(screen.getByText(/^Sugerir Templates$/i));
 
     await waitFor(() => {
+      expect(screen.getByText(/Sugestões de Template/i)).toBeInTheDocument();
       expect(screen.getByText(/38\/40 arquivos — 95%/i)).toBeInTheDocument();
       expect(
         screen.getByText(/Tags Encontradas na Amostragem/i)
       ).toBeInTheDocument();
       expect(screen.getByText('custom_sampled_tag')).toBeInTheDocument();
     });
+
+    // Test collapsing and re-opening the Template Suggestions sidebar
+    fireEvent.click(
+      screen.getByTitle('Ocultar painel lateral de sugestões')
+    );
+    expect(
+      screen.queryByText(/Sugestões de Template/i)
+    ).not.toBeInTheDocument();
+    fireEvent.click(screen.getByText(/Mostrar Sugestões/i));
+    expect(
+      screen.getByText(/Sugestões de Template/i)
+    ).toBeInTheDocument();
 
     // Test adding a custom tag manually and applying discovered tags
     const customInput = screen.getByPlaceholderText(

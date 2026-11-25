@@ -180,8 +180,8 @@ export const App: React.FC = () => {
                 setCurrentParentPath('');
                 setActiveScan(null);
               }}
-              title="Pasta de Downloads"
-              aria-label="Pasta de Downloads"
+              title="Downloads"
+              aria-label="Downloads"
               className={`flex items-center justify-center gap-2 p-2.5 md:px-4 md:py-2 rounded-lg text-xs font-semibold transition ${
                 activeTab === 'downloads'
                   ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/25'
@@ -189,7 +189,7 @@ export const App: React.FC = () => {
               }`}
             >
               <Download className="w-4 h-4 shrink-0" />
-              <span className="hidden md:inline">Pasta de Downloads</span>
+              <span className="hidden md:inline">Downloads</span>
             </button>
 
             <button
@@ -198,8 +198,8 @@ export const App: React.FC = () => {
                 setCurrentParentPath('');
                 setActiveScan(null);
               }}
-              title="Editar Bibliotecas (7 Pontos)"
-              aria-label="Editar Bibliotecas (7 Pontos)"
+              title="Bibliotecas"
+              aria-label="Bibliotecas"
               className={`flex items-center justify-center gap-2 p-2.5 md:px-4 md:py-2 rounded-lg text-xs font-semibold transition ${
                 activeTab === 'libraries'
                   ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/25'
@@ -207,15 +207,13 @@ export const App: React.FC = () => {
               }`}
             >
               <Library className="w-4 h-4 shrink-0" />
-              <span className="hidden md:inline">
-                Editar Bibliotecas (7 Pontos)
-              </span>
+              <span className="hidden md:inline">Bibliotecas</span>
             </button>
 
             <button
               onClick={() => setActiveTab('templates')}
-              title="Templates & Amostragem"
-              aria-label="Templates & Amostragem"
+              title="Templates"
+              aria-label="Templates"
               className={`flex items-center justify-center gap-2 p-2.5 md:px-4 md:py-2 rounded-lg text-xs font-semibold transition ${
                 activeTab === 'templates'
                   ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/25'
@@ -223,7 +221,7 @@ export const App: React.FC = () => {
               }`}
             >
               <Settings className="w-4 h-4 shrink-0" />
-              <span className="hidden md:inline">Templates & Amostragem</span>
+              <span className="hidden md:inline">Templates</span>
             </button>
           </nav>
         </div>
@@ -283,16 +281,13 @@ export const App: React.FC = () => {
                 )}
 
                 <div className="bg-slate-900/90 border border-slate-800 rounded-xl p-4 space-y-3">
-                  <div className="flex flex-wrap items-start justify-between gap-2">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
                     <div className="min-w-[140px] flex-1">
                       <h2 className="text-xs font-bold uppercase tracking-wider text-slate-300">
                         {activeTab === 'downloads'
                           ? 'Clusters em Downloads'
                           : `Biblioteca: ${MEDIA_TYPES_CONFIG[selectedLibrarySource].label}`}
                       </h2>
-                      <p className="text-[11px] font-mono text-slate-500 break-words">
-                        {mounts[currentSourceRoot] || `/${currentSourceRoot}`}
-                      </p>
                     </div>
                     <div className="flex items-center gap-1.5 shrink-0">
                       <button
@@ -460,9 +455,6 @@ export const App: React.FC = () => {
                       ? 'Downloads'
                       : `Biblioteca (${MEDIA_TYPES_CONFIG[selectedLibrarySource].label})`}
                   </button>
-                  <span className="text-xs text-slate-400 font-mono">
-                    {mounts[currentSourceRoot] || `/${currentSourceRoot}`}
-                  </span>
                 </div>
               )}
               {loadingCluster ? (
