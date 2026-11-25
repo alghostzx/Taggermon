@@ -720,6 +720,21 @@ export const ClusterEditor: React.FC<ClusterEditorProps> = ({
   );
   const extraImages = scan.extraFiles.filter((e) => e.isImage);
 
+  const getClusterGridColsClass = (count: number): string => {
+    if (count <= 1) return 'grid-cols-1';
+    if (count === 2) return 'grid-cols-1 sm:grid-cols-2';
+    if (count === 3) return 'grid-cols-1 sm:grid-cols-2 md:grid-cols-3';
+    if (count === 4)
+      return 'grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4';
+    if (count === 5)
+      return 'grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5';
+    if (count === 6)
+      return 'grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6';
+    if (count === 7)
+      return 'grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 2xl:grid-cols-7';
+    return 'grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 2xl:grid-cols-8';
+  };
+
   return (
     <div className="space-y-6">
       {/* Header Bar: Cluster Title & Media Type Switcher */}
@@ -864,22 +879,33 @@ export const ClusterEditor: React.FC<ClusterEditorProps> = ({
               </span>
             )}
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 2xl:grid-cols-8 gap-3">
+          <div
+            className={`grid ${getClusterGridColsClass(
+              clusterLevelFields.length
+            )} gap-3 items-stretch`}
+          >
             {clusterLevelFields.map((field) => {
               const isInferred = inferredClusterKeys.has(field.key);
               return (
-                <div key={field.key} className="space-y-1">
-                  <label className="flex flex-wrap items-center gap-1.5 text-xs font-medium text-slate-400">
-                    <span>{field.label}</span>
-                    <code className="text-indigo-400">{`{${field.key}}`}</code>
-                    {isInferred && (
-                      <span
-                        className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-amber-500/15 text-amber-300 border border-amber-500/40"
-                        title="Valor preenchido automaticamente porque esta tag não existia nos arquivos originais"
-                      >
-                        Inferido
-                      </span>
-                    )}
+                <div
+                  key={field.key}
+                  className="flex flex-col justify-between gap-1.5"
+                >
+                  <label className="space-y-0.5 text-xs font-medium text-slate-400">
+                    <div className="flex items-center justify-between gap-1.5">
+                      <span className="leading-snug">{field.label}</span>
+                      {isInferred && (
+                        <span
+                          className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-amber-500/15 text-amber-300 border border-amber-500/40 shrink-0"
+                          title="Valor preenchido automaticamente porque esta tag não existia nos arquivos originais"
+                        >
+                          Inferido
+                        </span>
+                      )}
+                    </div>
+                    <div className="font-mono text-[11px] text-indigo-400 leading-tight">
+                      {`{${field.key}}`}
+                    </div>
                   </label>
                   <input
                     type="text"
