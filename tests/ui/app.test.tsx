@@ -514,6 +514,44 @@ describe('UI: React Application, ClusterEditor, COV Remote Protocol & TemplateMa
     expect(screen.getByDisplayValue('pt-BR')).toBeInTheDocument();
   });
 
+  it('switches file and subtitle tables to vertically stacked layout on narrow viewports (< 1024px)', async () => {
+    const origMatchMedia = window.matchMedia;
+    window.matchMedia = vi.fn().mockImplementation((query: string) => ({
+      matches: false,
+      media: query,
+      onchange: null,
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+      addListener: vi.fn(),
+      removeListener: vi.fn(),
+      dispatchEvent: vi.fn(),
+    }));
+
+    try {
+      render(<App />);
+
+      await waitFor(() => {
+        expect(screen.getByText('Severance.S01')).toBeInTheDocument();
+      });
+
+      fireEvent.click(screen.getByText('Severance.S01'));
+
+      await waitFor(() => {
+        expect(screen.getByTestId('stacked-files-list')).toBeInTheDocument();
+        expect(
+          screen.getByTestId('stacked-subtitles-list')
+        ).toBeInTheDocument();
+      });
+      expect(screen.queryByRole('table')).not.toBeInTheDocument();
+      expect(
+        screen.getByDisplayValue('Good News About Hell')
+      ).toBeInTheDocument();
+      expect(screen.getByDisplayValue('pt-BR')).toBeInTheDocument();
+    } finally {
+      window.matchMedia = origMatchMedia;
+    }
+  });
+
   it('navigates between Libraries tab (7 mount points) and Templates & Amostragem tab with random heuristic suggestions and collapsible sidebars', async () => {
     render(<App />);
 

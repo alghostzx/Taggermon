@@ -87,6 +87,29 @@ export const ClusterEditor: React.FC<ClusterEditorProps> = ({
     mode: 'none',
   });
 
+  // Track viewport width >= 1024px (lg) to switch between desktop table and vertically stacked mobile layout
+  const [isDesktopTable, setIsDesktopTable] = useState<boolean>(() => {
+    if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') {
+      return true;
+    }
+    return window.matchMedia('(min-width: 1024px)').matches;
+  });
+
+  useEffect(() => {
+    if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') {
+      return;
+    }
+    const mq = window.matchMedia('(min-width: 1024px)');
+    const onChange = (e: MediaQueryListEvent) => setIsDesktopTable(e.matches);
+    setIsDesktopTable(mq.matches);
+    if (typeof mq.addEventListener === 'function') {
+      mq.addEventListener('change', onChange);
+      return () => mq.removeEventListener('change', onChange);
+    }
+    mq.addListener(onChange);
+    return () => mq.removeListener(onChange);
+  }, []);
+
   // Filename pattern parser tool
   const [extractPattern, setExtractPattern] = useState('');
   const [showExtractTool, setShowExtractTool] = useState(false);
@@ -952,71 +975,245 @@ export const ClusterEditor: React.FC<ClusterEditorProps> = ({
         </div>
       )}
 
-      {/* Per-File Table & Live Path Previews */}
+      {/* Per-File Table (>= 1024px) or Vertically Stacked Layout (< 1024px) */}
       <div className="bg-slate-900/90 border border-slate-800 rounded-xl overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse">
-            <thead>
-              <tr className="border-b border-slate-800 bg-slate-950/60 text-[11px] font-semibold uppercase tracking-wider text-slate-400">
-                <th className="py-3 px-4 w-[18%]">Arquivo Atual</th>
-                {fileLevelFields.map((field) => (
-                  <th
-                    key={field.key}
-                    className={`py-3 px-2 ${
-                      field.isNumeric ? 'w-16' : 'w-[14%]'
-                    }`}
-                  >
-                    {field.label} ({`{${field.key}}`})
+        {isDesktopTable ? (
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse">
+              <thead>
+                <tr className="border-b border-slate-800 bg-slate-950/60 text-[11px] font-semibold uppercase tracking-wider text-slate-400">
+                  <th className="py-3 px-4 w-[18%]">Arquivo Atual</th>
+                  {fileLevelFields.map((field) => (
+                    <th
+                      key={field.key}
+                      className={`py-3 px-2 ${
+                        field.isNumeric ? 'w-16' : 'w-[14%]'
+                      }`}
+                    >
+                      {field.label} ({`{${field.key}}`})
+                    </th>
+                  ))}
+                  <th className="py-3 px-4 w-[32%]">
+                    Preview Destino na Biblioteca
                   </th>
-                ))}
-                <th className="py-3 px-4 w-[32%]">
-                  Preview Destino na Biblioteca
-                </th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-800/70 text-xs">
-              {scan.mediaFiles.map((file) => {
-                const fTags = fileTagsMap[file.relativePath] || {};
-                const previewDest = destPreviews[file.relativePath] || '...';
-                const lastSlashIdx = previewDest.lastIndexOf('/');
-                const previewFolder =
-                  lastSlashIdx !== -1
-                    ? previewDest.slice(0, lastSlashIdx)
-                    : '';
-                const previewFile =
-                  lastSlashIdx !== -1
-                    ? previewDest.slice(lastSlashIdx + 1)
-                    : previewDest;
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-800/70 text-xs">
+                {scan.mediaFiles.map((file) => {
+                  const fTags = fileTagsMap[file.relativePath] || {};
+                  const previewDest = destPreviews[file.relativePath] || '...';
+                  const lastSlashIdx = previewDest.lastIndexOf('/');
+                  const previewFolder =
+                    lastSlashIdx !== -1
+                      ? previewDest.slice(0, lastSlashIdx)
+                      : '';
+                  const previewFile =
+                    lastSlashIdx !== -1
+                      ? previewDest.slice(lastSlashIdx + 1)
+                      : previewDest;
 
-                return (
-                  <tr
-                    key={file.relativePath}
-                    className="hover:bg-slate-800/30 transition align-top"
-                  >
-                    <td className="py-3 px-4 font-mono text-slate-300">
-                      <div className="break-words [overflow-wrap:anywhere] leading-relaxed">
-                        {file.relativePath}
-                      </div>
+                  return (
+                    <tr
+                      key={file.relativePath}
+                      className="hover:bg-slate-800/30 transition align-top"
+                    >
+                      <td className="py-3 px-4 font-mono text-slate-300">
+                        <div className="break-words [overflow-wrap:anywhere] leading-relaxed">
+                          {file.relativePath}
+                        </div>
+                        {file.needsConversionToCbz && (
+                          <span className="inline-block mt-1 px-1.5 py-0.5 rounded text-[10px] bg-indigo-500/20 text-indigo-300">
+                            Converter → .cbz
+                          </span>
+                        )}
+                        {file.isPdfNoInternalTags && (
+                          <span className="inline-block mt-1 px-1.5 py-0.5 rounded text-[10px] bg-amber-500/20 text-amber-300">
+                            PDF (Somente Caminho/Nome)
+                          </span>
+                        )}
+                      </td>
+
+                      {fileLevelFields.map((field) => {
+                        const val = fTags[field.key] || '';
+                        const isFileInferred = inferredFileKeys.has(
+                          `${file.relativePath}::${field.key}`
+                        );
+                        if (field.isNumeric) {
+                          return (
+                            <td key={field.key} className="py-2.5 px-2.5">
+                              <input
+                                type="text"
+                                value={val}
+                                title={
+                                  isFileInferred
+                                    ? `${val} (valor inferido automaticamente por ausência na tag original)`
+                                    : val
+                                }
+                                onChange={(e) =>
+                                  handleFileTagChange(
+                                    file.relativePath,
+                                    field.key,
+                                    e.target.value
+                                  )
+                                }
+                                placeholder={field.placeholder}
+                                className={`w-16 px-2.5 py-1.5 rounded text-xs font-mono text-white focus:border-indigo-500 focus:outline-none ${
+                                  isFileInferred
+                                    ? 'bg-amber-950/25 border border-amber-500/50'
+                                    : 'bg-slate-950 border border-slate-700'
+                                }`}
+                              />
+                              {isFileInferred && (
+                                <div
+                                  className="text-[10px] text-amber-300 font-medium mt-0.5"
+                                  title="Valor preenchido automaticamente por estar ausente na tag original"
+                                >
+                                  inferido
+                                </div>
+                              )}
+                            </td>
+                          );
+                        }
+
+                        const isLongTextField = [
+                          'dc:description',
+                          'description',
+                          'summary',
+                        ].includes(field.key.toLowerCase());
+                        const rowCount = Math.max(
+                          isLongTextField ? 2 : 1,
+                          Math.min(
+                            isLongTextField ? 6 : 4,
+                            Math.ceil(
+                              (val.length || 1) / (isLongTextField ? 40 : 24)
+                            )
+                          )
+                        );
+                        return (
+                          <td key={field.key} className="py-2.5 px-2">
+                            <textarea
+                              rows={rowCount}
+                              value={val}
+                              title={val}
+                              onChange={(e) =>
+                                handleFileTagChange(
+                                  file.relativePath,
+                                  field.key,
+                                  isLongTextField
+                                    ? e.target.value
+                                    : e.target.value.replace(/\r?\n/g, ' ')
+                                )
+                              }
+                              placeholder={field.placeholder}
+                              className={`w-full ${
+                                isLongTextField
+                                  ? 'min-w-[220px]'
+                                  : 'min-w-[125px]'
+                              } px-2.5 py-1.5 rounded bg-slate-950 border border-slate-700 text-xs text-white focus:border-indigo-500 focus:outline-none resize-y leading-snug`}
+                            />
+                          </td>
+                        );
+                      })}
+
+                      <td className="py-3 px-4 font-mono">
+                        <div className="flex items-start gap-2">
+                          <ArrowRight className="w-3.5 h-3.5 text-slate-500 shrink-0 mt-1" />
+                          <div className="min-w-0 flex-1 space-y-0.5 break-words [overflow-wrap:anywhere]">
+                            {previewFolder && (
+                              <div className="text-[11px] text-slate-400 leading-snug">
+                                {meta.defaultMountPath}/{previewFolder}/
+                              </div>
+                            )}
+                            <div className="text-emerald-400 font-medium leading-snug">
+                              {previewFile}
+                            </div>
+                          </div>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <div
+            data-testid="stacked-files-list"
+            className="divide-y divide-slate-800"
+          >
+            {scan.mediaFiles.map((file) => {
+              const fTags = fileTagsMap[file.relativePath] || {};
+              const previewDest = destPreviews[file.relativePath] || '...';
+              const lastSlashIdx = previewDest.lastIndexOf('/');
+              const previewFolder =
+                lastSlashIdx !== -1 ? previewDest.slice(0, lastSlashIdx) : '';
+              const previewFile =
+                lastSlashIdx !== -1
+                  ? previewDest.slice(lastSlashIdx + 1)
+                  : previewDest;
+
+              return (
+                <div key={file.relativePath} className="p-4 space-y-3">
+                  {/* File Header */}
+                  <div className="space-y-1">
+                    <div className="font-mono text-xs font-semibold text-white break-words [overflow-wrap:anywhere] leading-relaxed">
+                      {file.relativePath}
+                    </div>
+                    <div className="flex flex-wrap gap-1.5">
                       {file.needsConversionToCbz && (
-                        <span className="inline-block mt-1 px-1.5 py-0.5 rounded text-[10px] bg-indigo-500/20 text-indigo-300">
+                        <span className="inline-block px-1.5 py-0.5 rounded text-[10px] bg-indigo-500/20 text-indigo-300">
                           Converter → .cbz
                         </span>
                       )}
                       {file.isPdfNoInternalTags && (
-                        <span className="inline-block mt-1 px-1.5 py-0.5 rounded text-[10px] bg-amber-500/20 text-amber-300">
+                        <span className="inline-block px-1.5 py-0.5 rounded text-[10px] bg-amber-500/20 text-amber-300">
                           PDF (Somente Caminho/Nome)
                         </span>
                       )}
-                    </td>
+                    </div>
+                  </div>
 
+                  {/* Vertically Stacked Tag Fields */}
+                  <div className="space-y-2.5">
                     {fileLevelFields.map((field) => {
                       const val = fTags[field.key] || '';
                       const isFileInferred = inferredFileKeys.has(
                         `${file.relativePath}::${field.key}`
                       );
-                      if (field.isNumeric) {
-                        return (
-                          <td key={field.key} className="py-2.5 px-2.5">
+                      const isLongTextField = [
+                        'dc:description',
+                        'description',
+                        'summary',
+                      ].includes(field.key.toLowerCase());
+                      const rowCount = Math.max(
+                        isLongTextField ? 2 : 1,
+                        Math.min(
+                          isLongTextField ? 6 : 4,
+                          Math.ceil(
+                            (val.length || 1) / (isLongTextField ? 40 : 32)
+                          )
+                        )
+                      );
+
+                      return (
+                        <div key={field.key} className="space-y-1">
+                          <label className="flex flex-wrap items-center justify-between gap-1.5 text-xs font-medium text-slate-400">
+                            <span className="flex flex-wrap items-center gap-1.5">
+                              <span>{field.label}</span>
+                              <code className="text-[11px] text-indigo-400">
+                                {`{${field.key}}`}
+                              </code>
+                            </span>
+                            {isFileInferred && (
+                              <span
+                                className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-amber-500/15 text-amber-300 border border-amber-500/40"
+                                title="Valor preenchido automaticamente por estar ausente na tag original"
+                              >
+                                inferido
+                              </span>
+                            )}
+                          </label>
+                          {field.isNumeric ? (
                             <input
                               type="text"
                               value={val}
@@ -1033,81 +1230,56 @@ export const ClusterEditor: React.FC<ClusterEditorProps> = ({
                                 )
                               }
                               placeholder={field.placeholder}
-                              className={`w-16 px-2.5 py-1.5 rounded text-xs font-mono text-white focus:border-indigo-500 focus:outline-none ${
+                              className={`w-full px-3 py-2 rounded-lg text-xs font-mono text-white focus:border-indigo-500 focus:outline-none ${
                                 isFileInferred
                                   ? 'bg-amber-950/25 border border-amber-500/50'
                                   : 'bg-slate-950 border border-slate-700'
                               }`}
                             />
-                            {isFileInferred && (
-                              <div
-                                className="text-[10px] text-amber-300 font-medium mt-0.5"
-                                title="Valor preenchido automaticamente por estar ausente na tag original"
-                              >
-                                inferido
-                              </div>
-                            )}
-                          </td>
-                        );
-                      }
-
-                      const isLongTextField = [
-                        'dc:description',
-                        'description',
-                        'summary',
-                      ].includes(field.key.toLowerCase());
-                      const rowCount = Math.max(
-                        isLongTextField ? 2 : 1,
-                        Math.min(
-                          isLongTextField ? 6 : 4,
-                          Math.ceil((val.length || 1) / (isLongTextField ? 40 : 24))
-                        )
-                      );
-                      return (
-                        <td key={field.key} className="py-2.5 px-2">
-                          <textarea
-                            rows={rowCount}
-                            value={val}
-                            title={val}
-                            onChange={(e) =>
-                              handleFileTagChange(
-                                file.relativePath,
-                                field.key,
-                                isLongTextField
-                                  ? e.target.value
-                                  : e.target.value.replace(/\r?\n/g, ' ')
-                              )
-                            }
-                            placeholder={field.placeholder}
-                            className={`w-full ${
-                              isLongTextField ? 'min-w-[220px]' : 'min-w-[125px]'
-                            } px-2.5 py-1.5 rounded bg-slate-950 border border-slate-700 text-xs text-white focus:border-indigo-500 focus:outline-none resize-y leading-snug`}
-                          />
-                        </td>
+                          ) : (
+                            <textarea
+                              rows={rowCount}
+                              value={val}
+                              title={val}
+                              onChange={(e) =>
+                                handleFileTagChange(
+                                  file.relativePath,
+                                  field.key,
+                                  isLongTextField
+                                    ? e.target.value
+                                    : e.target.value.replace(/\r?\n/g, ' ')
+                                )
+                              }
+                              placeholder={field.placeholder}
+                              className="w-full px-3 py-2 rounded-lg bg-slate-950 border border-slate-700 text-xs text-white focus:border-indigo-500 focus:outline-none resize-y leading-snug"
+                            />
+                          )}
+                        </div>
                       );
                     })}
+                  </div>
 
-                    <td className="py-3 px-4 font-mono">
-                      <div className="flex items-start gap-2">
-                        <ArrowRight className="w-3.5 h-3.5 text-slate-500 shrink-0 mt-1" />
-                        <div className="min-w-0 flex-1 space-y-0.5 break-words [overflow-wrap:anywhere]">
-                          {previewFolder && (
-                            <div className="text-[11px] text-slate-400 leading-snug">
-                              {meta.defaultMountPath}/{previewFolder}/
-                            </div>
-                          )}
-                          <div className="text-emerald-400 font-medium leading-snug">
-                            {previewFile}
+                  {/* Compact Destination Preview Footer */}
+                  <div className="pt-2 border-t border-slate-800/70 font-mono text-xs">
+                    <div className="flex items-start gap-2 bg-slate-950/70 border border-slate-800/80 rounded-lg px-2.5 py-2">
+                      <ArrowRight className="w-3.5 h-3.5 text-slate-500 shrink-0 mt-0.5" />
+                      <div className="min-w-0 flex-1 space-y-0.5 break-words [overflow-wrap:anywhere]">
+                        {previewFolder && (
+                          <div className="text-[11px] text-slate-400 leading-snug">
+                            {meta.defaultMountPath}/{previewFolder}/
                           </div>
+                        )}
+                        <div className="text-emerald-400 font-medium leading-snug">
+                          {previewFile}
                         </div>
                       </div>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
       </div>
 
       {/* Subtitles Matcher & Renamer Section (for Movies & Series) */}
@@ -1119,100 +1291,200 @@ export const ClusterEditor: React.FC<ClusterEditorProps> = ({
               Arquivos de Legenda Acompanhantes ({subtitlesState.length}) — Renomeados e Movidos Automaticamente
             </span>
           </div>
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs">
-              <thead>
-                <tr className="border-b border-slate-800 text-slate-400">
-                  <th className="py-2 px-3">Legenda Original</th>
-                  <th className="py-2 px-3">Associada ao Vídeo</th>
-                  <th className="py-2 px-3">Idioma (ex: pt-BR, en)</th>
-                  <th className="py-2 px-3">Flags</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-800/60">
-                {subtitlesState.map((sub, idx) => (
-                  <tr key={sub.relativePath}>
-                    <td className="py-2 px-3 font-mono text-slate-300">
-                      {sub.relativePath}
-                    </td>
-                    <td className="py-2 px-3">
-                      <select
-                        value={sub.matchedVideoRelativePath || ''}
-                        onChange={(e) => {
-                          const val = e.target.value || null;
-                          setSubtitlesState((prev) =>
-                            prev.map((s, i) =>
-                              i === idx
-                                ? { ...s, matchedVideoRelativePath: val }
-                                : s
-                            )
-                          );
-                        }}
-                        className="px-2.5 py-1 rounded bg-slate-950 border border-slate-700 text-xs text-slate-200"
-                      >
-                        <option value="">-- Ignorar legenda --</option>
-                        {scan.mediaFiles.map((mf) => (
-                          <option key={mf.relativePath} value={mf.relativePath}>
-                            {mf.filename}
-                          </option>
-                        ))}
-                      </select>
-                    </td>
-                    <td className="py-2 px-3">
-                      <input
-                        type="text"
-                        value={sub.languageCode}
-                        onChange={(e) => {
-                          const val = e.target.value;
-                          setSubtitlesState((prev) =>
-                            prev.map((s, i) =>
-                              i === idx ? { ...s, languageCode: val } : s
-                            )
-                          );
-                        }}
-                        placeholder="pt-BR"
-                        className="w-24 px-2.5 py-1 rounded bg-slate-950 border border-slate-700 text-xs font-mono text-white"
-                      />
-                    </td>
-                    <td className="py-2 px-3 flex items-center gap-4">
-                      <label className="flex items-center gap-1.5 cursor-pointer">
-                        <input
-                          type="checkbox"
-                          checked={sub.isForced}
-                          onChange={(e) => {
-                            const val = e.target.checked;
-                            setSubtitlesState((prev) =>
-                              prev.map((s, i) =>
-                                i === idx ? { ...s, isForced: val } : s
-                              )
-                            );
-                          }}
-                          className="rounded border-slate-700 bg-slate-950"
-                        />
-                        <span>.forced</span>
-                      </label>
-                      <label className="flex items-center gap-1.5 cursor-pointer">
-                        <input
-                          type="checkbox"
-                          checked={sub.isSdh}
-                          onChange={(e) => {
-                            const val = e.target.checked;
-                            setSubtitlesState((prev) =>
-                              prev.map((s, i) =>
-                                i === idx ? { ...s, isSdh: val } : s
-                              )
-                            );
-                          }}
-                          className="rounded border-slate-700 bg-slate-950"
-                        />
-                        <span>.sdh</span>
-                      </label>
-                    </td>
+          {isDesktopTable ? (
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs">
+                <thead>
+                  <tr className="border-b border-slate-800 text-slate-400">
+                    <th className="py-2 px-3">Legenda Original</th>
+                    <th className="py-2 px-3">Associada ao Vídeo</th>
+                    <th className="py-2 px-3">Idioma (ex: pt-BR, en)</th>
+                    <th className="py-2 px-3">Flags</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody className="divide-y divide-slate-800/60">
+                  {subtitlesState.map((sub, idx) => (
+                    <tr key={sub.relativePath}>
+                      <td className="py-2 px-3 font-mono text-slate-300">
+                        {sub.relativePath}
+                      </td>
+                      <td className="py-2 px-3">
+                        <select
+                          value={sub.matchedVideoRelativePath || ''}
+                          onChange={(e) => {
+                            const val = e.target.value || null;
+                            setSubtitlesState((prev) =>
+                              prev.map((s, i) =>
+                                i === idx
+                                  ? { ...s, matchedVideoRelativePath: val }
+                                  : s
+                              )
+                            );
+                          }}
+                          className="px-2.5 py-1 rounded bg-slate-950 border border-slate-700 text-xs text-slate-200"
+                        >
+                          <option value="">-- Ignorar legenda --</option>
+                          {scan.mediaFiles.map((mf) => (
+                            <option
+                              key={mf.relativePath}
+                              value={mf.relativePath}
+                            >
+                              {mf.filename}
+                            </option>
+                          ))}
+                        </select>
+                      </td>
+                      <td className="py-2 px-3">
+                        <input
+                          type="text"
+                          value={sub.languageCode}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            setSubtitlesState((prev) =>
+                              prev.map((s, i) =>
+                                i === idx ? { ...s, languageCode: val } : s
+                              )
+                            );
+                          }}
+                          placeholder="pt-BR"
+                          className="w-24 px-2.5 py-1 rounded bg-slate-950 border border-slate-700 text-xs font-mono text-white"
+                        />
+                      </td>
+                      <td className="py-2 px-3 flex items-center gap-4">
+                        <label className="flex items-center gap-1.5 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={sub.isForced}
+                            onChange={(e) => {
+                              const val = e.target.checked;
+                              setSubtitlesState((prev) =>
+                                prev.map((s, i) =>
+                                  i === idx ? { ...s, isForced: val } : s
+                                )
+                              );
+                            }}
+                            className="rounded border-slate-700 bg-slate-950"
+                          />
+                          <span>.forced</span>
+                        </label>
+                        <label className="flex items-center gap-1.5 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={sub.isSdh}
+                            onChange={(e) => {
+                              const val = e.target.checked;
+                              setSubtitlesState((prev) =>
+                                prev.map((s, i) =>
+                                  i === idx ? { ...s, isSdh: val } : s
+                                )
+                              );
+                            }}
+                            className="rounded border-slate-700 bg-slate-950"
+                          />
+                          <span>.sdh</span>
+                        </label>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <div
+              data-testid="stacked-subtitles-list"
+              className="divide-y divide-slate-800 border border-slate-800 rounded-lg overflow-hidden"
+            >
+              {subtitlesState.map((sub, idx) => (
+                <div
+                  key={sub.relativePath}
+                  className="p-3.5 space-y-2.5 bg-slate-950/40 text-xs"
+                >
+                  <div className="font-mono font-semibold text-white break-words [overflow-wrap:anywhere]">
+                    {sub.relativePath}
+                  </div>
+                  <div className="space-y-1">
+                    <label className="block text-slate-400 font-medium">
+                      Associada ao Vídeo
+                    </label>
+                    <select
+                      value={sub.matchedVideoRelativePath || ''}
+                      onChange={(e) => {
+                        const val = e.target.value || null;
+                        setSubtitlesState((prev) =>
+                          prev.map((s, i) =>
+                            i === idx
+                              ? { ...s, matchedVideoRelativePath: val }
+                              : s
+                          )
+                        );
+                      }}
+                      className="w-full px-3 py-2 rounded-lg bg-slate-950 border border-slate-700 text-xs text-slate-200"
+                    >
+                      <option value="">-- Ignorar legenda --</option>
+                      {scan.mediaFiles.map((mf) => (
+                        <option key={mf.relativePath} value={mf.relativePath}>
+                          {mf.filename}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="space-y-1">
+                    <label className="block text-slate-400 font-medium">
+                      Idioma (ex: pt-BR, en)
+                    </label>
+                    <input
+                      type="text"
+                      value={sub.languageCode}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setSubtitlesState((prev) =>
+                          prev.map((s, i) =>
+                            i === idx ? { ...s, languageCode: val } : s
+                          )
+                        );
+                      }}
+                      placeholder="pt-BR"
+                      className="w-full px-3 py-2 rounded-lg bg-slate-950 border border-slate-700 text-xs font-mono text-white"
+                    />
+                  </div>
+                  <div className="flex items-center gap-5 pt-0.5">
+                    <label className="flex items-center gap-1.5 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={sub.isForced}
+                        onChange={(e) => {
+                          const val = e.target.checked;
+                          setSubtitlesState((prev) =>
+                            prev.map((s, i) =>
+                              i === idx ? { ...s, isForced: val } : s
+                            )
+                          );
+                        }}
+                        className="rounded border-slate-700 bg-slate-950"
+                      />
+                      <span>.forced</span>
+                    </label>
+                    <label className="flex items-center gap-1.5 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={sub.isSdh}
+                        onChange={(e) => {
+                          const val = e.target.checked;
+                          setSubtitlesState((prev) =>
+                            prev.map((s, i) =>
+                              i === idx ? { ...s, isSdh: val } : s
+                            )
+                          );
+                        }}
+                        className="rounded border-slate-700 bg-slate-950"
+                      />
+                      <span>.sdh</span>
+                    </label>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       )}
 
