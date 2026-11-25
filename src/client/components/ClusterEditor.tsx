@@ -766,9 +766,17 @@ export const ClusterEditor: React.FC<ClusterEditorProps> = ({
                         );
                       }
 
+                      const isLongTextField = [
+                        'dc:description',
+                        'description',
+                        'summary',
+                      ].includes(field.key.toLowerCase());
                       const rowCount = Math.max(
-                        1,
-                        Math.min(4, Math.ceil((val.length || 1) / 24))
+                        isLongTextField ? 2 : 1,
+                        Math.min(
+                          isLongTextField ? 6 : 4,
+                          Math.ceil((val.length || 1) / (isLongTextField ? 40 : 24))
+                        )
                       );
                       return (
                         <td key={field.key} className="py-2.5 px-2">
@@ -780,11 +788,15 @@ export const ClusterEditor: React.FC<ClusterEditorProps> = ({
                               handleFileTagChange(
                                 file.relativePath,
                                 field.key,
-                                e.target.value.replace(/\r?\n/g, ' ')
+                                isLongTextField
+                                  ? e.target.value
+                                  : e.target.value.replace(/\r?\n/g, ' ')
                               )
                             }
                             placeholder={field.placeholder}
-                            className="w-full min-w-[125px] px-2.5 py-1.5 rounded bg-slate-950 border border-slate-700 text-xs text-white focus:border-indigo-500 focus:outline-none resize-y leading-snug"
+                            className={`w-full ${
+                              isLongTextField ? 'min-w-[220px]' : 'min-w-[125px]'
+                            } px-2.5 py-1.5 rounded bg-slate-950 border border-slate-700 text-xs text-white focus:border-indigo-500 focus:outline-none resize-y leading-snug`}
                           />
                         </td>
                       );

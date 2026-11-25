@@ -235,8 +235,15 @@ export async function inspectAudioFile(
         } else {
           tags[normalized] = rawValue.trim();
         }
-      } else if (!whitelistSet.has(lowerKey)) {
-        unwantedTags[rawKey] = rawValue;
+      } else {
+        const matchedCustom = allowedTemplateTags.find(
+          (t) => t.toLowerCase().trim() === lowerKey
+        );
+        if (matchedCustom) {
+          tags[matchedCustom] = rawValue.trim();
+        } else if (!whitelistSet.has(lowerKey)) {
+          unwantedTags[rawKey] = rawValue;
+        }
       }
     }
 
@@ -394,6 +401,42 @@ function buildFfmpegMetadataArgs(
       addMeta('track', trackVal);
     }
     addMeta('title', tags.title);
+  }
+
+  const handledStandardKeys = new Set(
+    mediaType === 'music'
+      ? [
+          'album_artist',
+          'artist',
+          'album',
+          'year',
+          'genre',
+          'disc',
+          'total_discs',
+          'track',
+          'total_tracks',
+          'title',
+          'composer',
+        ]
+      : [
+          'author',
+          'narrator',
+          'book_title',
+          'series',
+          'series_part',
+          'year',
+          'genre',
+          'language',
+          'track',
+          'total_tracks',
+          'title',
+        ]
+  );
+
+  for (const [k, v] of Object.entries(tags)) {
+    if (!handledStandardKeys.has(k)) {
+      addMeta(k, v);
+    }
   }
 
   for (const [k, v] of Object.entries(preservedExtraTags)) {

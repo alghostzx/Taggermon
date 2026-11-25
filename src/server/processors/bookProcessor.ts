@@ -68,6 +68,20 @@ function extractTextFromNode(node: unknown): string {
   return '';
 }
 
+function findMatchingAllowedTag(
+  rawKey: string,
+  allowedTemplateTags: string[],
+  aliases: string[] = []
+): string | null {
+  const candidates = [rawKey, ...aliases].map((s) => s.toLowerCase().trim());
+  for (const allowed of allowedTemplateTags) {
+    if (candidates.includes(allowed.toLowerCase().trim())) {
+      return allowed;
+    }
+  }
+  return null;
+}
+
 /**
  * Inspects a Book file (.epub, .mobi, .pdf).
  * PDF files dispense internal tags.
@@ -188,8 +202,16 @@ export async function inspectBookFile(
           content
         ) {
           tags.series_part = content;
-        } else if (name && content && !whitelistSet.has(name)) {
-          unwantedTags[name] = content;
+        } else if (name && content) {
+          const matchedMetaAllowed = findMatchingAllowedTag(
+            name,
+            allowedTemplateTags
+          );
+          if (matchedMetaAllowed) {
+            tags[matchedMetaAllowed] = content;
+          } else if (!whitelistSet.has(name)) {
+            unwantedTags[name] = content;
+          }
         }
       }
 
@@ -216,7 +238,16 @@ export async function inspectBookFile(
       for (const [k, v] of Object.entries(metadata)) {
         if (k.startsWith('@_') || knownDcKeys.has(k)) continue;
         const val = extractTextFromNode(v);
-        if (val && !whitelistSet.has(k.toLowerCase())) {
+        if (!val) continue;
+        const unprefixed = k.replace(/^dc:/i, '');
+        const matchedAllowed = findMatchingAllowedTag(
+          k,
+          allowedTemplateTags,
+          unprefixed !== k ? [unprefixed] : []
+        );
+        if (matchedAllowed) {
+          tags[matchedAllowed] = val;
+        } else if (!whitelistSet.has(k.toLowerCase())) {
           unwantedTags[k] = val;
         }
       }
@@ -267,8 +298,27 @@ export async function inspectBookFile(
             tags.series = sm[1].trim();
             if (sm[2] && allowedSet.has('series_part')) tags.series_part = sm[2];
           }
-        } else if (!whitelistSet.has(lower)) {
-          unwantedTags[rawKey] = rawVal;
+        } else if (lower === 'comments') {
+          const matchedDesc = findMatchingAllowedTag(
+            'dc:description',
+            allowedTemplateTags,
+            ['description', 'comments']
+          );
+          if (matchedDesc) {
+            tags[matchedDesc] = rawVal;
+          } else if (!whitelistSet.has(lower)) {
+            unwantedTags[rawKey] = rawVal;
+          }
+        } else {
+          const matchedCustom = findMatchingAllowedTag(
+            rawKey,
+            allowedTemplateTags
+          );
+          if (matchedCustom) {
+            tags[matchedCustom] = rawVal;
+          } else if (!whitelistSet.has(lower)) {
+            unwantedTags[rawKey] = rawVal;
+          }
         }
       }
       return {
@@ -369,6 +419,8 @@ export async function processBookFile(options: {
       if (tags.series) args.push('--series', tags.series);
       if (tags.series_part) args.push('--index', tags.series_part);
       if (tags.isbn) args.push('--isbn', tags.isbn);
+      const descriptionVal = tags['dc:description'] || tags.description;
+      if (descriptionVal) args.push('--comments', descriptionVal);
       if (coverImagePath && fs.existsSync(coverImagePath)) {
         args.push('--cover', coverImagePath);
       }
@@ -529,9 +581,38 @@ async function updateEpubOpfAndCover(
       });
     }
 
+    const standardBookTagKeys = new Set([
+      'title',
+      'author',
+      'publisher',
+      'year',
+      'language',
+      'genre',
+      'isbn',
+      'series',
+      'series_part',
+    ]);
+
+    for (const [k, v] of Object.entries(tags)) {
+      if (standardBookTagKeys.has(k) || !v || !String(v).trim()) continue;
+      const cleanVal = String(v).trim();
+      if (k.toLowerCase() === 'description') {
+        cleanMeta['dc:description'] = cleanVal;
+      } else if (k.toLowerCase().startsWith('dc:')) {
+        cleanMeta[k] = cleanVal;
+      } else {
+        metaList.push({
+          '@_name': k,
+          '@_content': cleanVal,
+        });
+      }
+    }
+
     for (const [k, v] of Object.entries(preservedExtraTags)) {
       if (k.startsWith('dc:')) {
-        cleanMeta[k] = v;
+        if (!(k in cleanMeta)) {
+          cleanMeta[k] = v;
+        }
       } else {
         metaList.push({
           '@_name': k,

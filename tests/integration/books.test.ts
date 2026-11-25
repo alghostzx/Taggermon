@@ -82,6 +82,62 @@ describe('Integration: Books Media Processor (.epub, .mobi, .pdf)', () => {
     expect(after.unwantedTags['calibre:user_metadata']).toBeUndefined();
   });
 
+  it('reads and persists custom template tags like dc:description and calibre meta tags without classifying them as unwanted', async () => {
+    const srcEpub = ws.copyFixture(
+      'books/sample_book.epub',
+      path.join(ws.downloadsDir, 'asimov_desc/fundacao.epub')
+    );
+
+    const customBookTags = [...bookTags, 'dc:description', 'dc:rights'];
+    const destWithDesc = path.join(
+      ws.libraryDirs.books,
+      'Isaac Asimov/Fundação (1951).epub'
+    );
+
+    // 1. Inspect with dc:rights in template -> should be in tags, not unwantedTags
+    const initial = await inspectBookFile(srcEpub, customBookTags);
+    expect(initial.tags['dc:rights']).toBe('Unwanted Copyright Watermark');
+    expect(initial.unwantedTags['dc:rights']).toBeUndefined();
+
+    // 2. Write dc:description into EPUB via processBookFile
+    await processBookFile({
+      sourcePath: srcEpub,
+      destinationPath: destWithDesc,
+      tags: {
+        ...initial.tags,
+        'dc:description': 'O Império Galáctico está em decadência.',
+      },
+      removeSourceAfterWrite: false,
+    });
+
+    // 3. Re-inspect with dc:description in template -> populated in tags['dc:description'], NOT in unwantedTags
+    const afterWithTemplate = await inspectBookFile(
+      destWithDesc,
+      customBookTags
+    );
+    expect(afterWithTemplate.tags['dc:description']).toBe(
+      'O Império Galáctico está em decadência.'
+    );
+    expect(afterWithTemplate.unwantedTags['dc:description']).toBeUndefined();
+
+    // 4. Re-inspect with 'description' alias in template -> populated in tags.description
+    const afterWithAlias = await inspectBookFile(destWithDesc, [
+      ...bookTags,
+      'description',
+    ]);
+    expect(afterWithAlias.tags.description).toBe(
+      'O Império Galáctico está em decadência.'
+    );
+    expect(afterWithAlias.unwantedTags['dc:description']).toBeUndefined();
+
+    // 5. Re-inspect WITHOUT dc:description in template -> appears in unwantedTags
+    const afterWithoutTemplate = await inspectBookFile(destWithDesc, bookTags);
+    expect(afterWithoutTemplate.tags['dc:description']).toBeUndefined();
+    expect(afterWithoutTemplate.unwantedTags['dc:description']).toBe(
+      'O Império Galáctico está em decadência.'
+    );
+  });
+
   it('organizes MOBI and PDF books into target library folders', async () => {
     const srcMobi = ws.copyFixture(
       'books/sample_book.mobi',

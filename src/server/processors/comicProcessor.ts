@@ -195,8 +195,15 @@ export function parseComicInfoXml(
       if (mappedKey && allowedSet.has(mappedKey)) {
         if (mappedKey === 'volume' && strVal === '-1') continue;
         tags[mappedKey] = strVal;
-      } else if (!whitelistSet.has(xmlKey.toLowerCase())) {
-        unwantedTags[xmlKey] = strVal;
+      } else {
+        const matchedCustom = allowedTemplateTags.find(
+          (t) => t.toLowerCase() === xmlKey.toLowerCase()
+        );
+        if (matchedCustom) {
+          tags[matchedCustom] = strVal;
+        } else if (!whitelistSet.has(xmlKey.toLowerCase())) {
+          unwantedTags[xmlKey] = strVal;
+        }
       }
     }
 
@@ -228,6 +235,18 @@ export function buildComicInfoXml(
       } else {
         comicInfoObj[xmlNodeName] = String(val).trim();
       }
+    }
+  }
+
+  for (const [tagKey, val] of Object.entries(tags)) {
+    if (
+      !(tagKey in TAG_KEY_TO_COMIC_INFO) &&
+      val !== undefined &&
+      val !== null &&
+      String(val).trim() !== '' &&
+      !(tagKey in comicInfoObj)
+    ) {
+      comicInfoObj[tagKey] = String(val).trim();
     }
   }
 
