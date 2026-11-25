@@ -233,8 +233,7 @@ export const CoverSection: React.FC<CoverPickerModalProps> = ({
         <div>
           <h3 className="text-sm font-semibold text-white flex items-center gap-2">
             <ImageIcon className="w-4 h-4 text-indigo-400" />
-            Gerenciamento de Capa (Sem Downscale +{' '}
-            <code>folder.jpg / folder.png</code>)
+            Gerenciamento de Capa
           </h3>
           <p className="text-xs text-slate-400 mt-0.5">
             A capa escolhida será embutida nos arquivos em resolução original e salva na pasta do álbum como{' '}

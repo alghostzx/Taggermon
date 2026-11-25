@@ -54,7 +54,6 @@ const mockMusicCluster: ClusterScanResult = {
       ext: 'flac',
       sizeBytes: 12000000,
       tags: {
-        album_artist: 'Pink Floyd',
         artist: 'Pink Floyd',
         album: 'The Dark Side of the Moon',
         year: '1973',
@@ -73,7 +72,6 @@ const mockMusicCluster: ClusterScanResult = {
       ext: 'flac',
       sizeBytes: 18000000,
       tags: {
-        album_artist: 'Pink Floyd',
         artist: 'Pink Floyd',
         album: 'The Dark Side of the Moon',
         year: '1973',
@@ -390,11 +388,20 @@ describe('UI: React Application, ClusterEditor, COV Remote Protocol & TemplateMa
     // Click on the music cluster
     fireEvent.click(screen.getByText('Pink Floyd - 1973 - Dark Side'));
 
-    // Verify ClusterEditor loaded with tags, cover image resolution, inferred disc/totals badges, and unwanted tags
+    // Verify ClusterEditor loaded with tags, cover image resolution, inferred disc/totals badges, and grouped unwanted tags
     await waitFor(() => {
       expect(screen.getByDisplayValue('Speak to Me')).toBeInTheDocument();
     });
+    expect(screen.getByText('Tags Comuns do Cluster')).toBeInTheDocument();
+    expect(screen.getByText('Gerenciamento de Capa')).toBeInTheDocument();
+    expect(screen.getByText('Tags Fora do Template')).toBeInTheDocument();
     expect(screen.getAllByText(/1500×1500px/i).length).toBeGreaterThanOrEqual(1);
+    // Unwanted tags are grouped by tag type (e.g. "comment (1)") and expandable
+    expect(screen.getByText('comment')).toBeInTheDocument();
+    expect(screen.getByText('encoded_by')).toBeInTheDocument();
+    // Expand first unwanted tag group ("comment") to inspect its content
+    const detailsButtons = screen.getAllByRole('button', { name: /Detalhes/i });
+    fireEvent.click(detailsButtons[0]);
     expect(
       screen.getByText(/Downloaded from PirateTracker/i)
     ).toBeInTheDocument();
@@ -477,6 +484,7 @@ describe('UI: React Application, ClusterEditor, COV Remote Protocol & TemplateMa
       'https://covers.musichoarders.xyz/highres_3000x3000.png'
     );
     expect(payload.files[0].tags.title).toBe('Speak to Me (Parsed)');
+    expect(payload.files[0].tags.album_artist).toBe('Pink Floyd');
     expect(payload.files[0].tags.disc).toBe('1');
     expect(payload.files[0].tags.total_discs).toBe('1');
     expect(payload.files[0].tags.total_tracks).toBe('2');

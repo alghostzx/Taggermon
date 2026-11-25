@@ -12,6 +12,8 @@ import {
   Play,
   Loader2,
   ArrowRight,
+  ChevronDown,
+  ChevronRight,
 } from 'lucide-react';
 import {
   ClusterScanResult,
@@ -60,6 +62,9 @@ export const ClusterEditor: React.FC<ClusterEditorProps> = ({
   const [unwantedMap, setUnwantedMap] = useState<
     Record<string, Record<string, { value: string; remove: boolean }>>
   >({});
+  const [expandedUnwantedTypes, setExpandedUnwantedTypes] = useState<
+    Set<string>
+  >(() => new Set());
 
   // Extra files actions
   const [extraActions, setExtraActions] = useState<
@@ -155,6 +160,29 @@ export const ClusterEditor: React.FC<ClusterEditorProps> = ({
         if (filePrefixMatch) return String(parseInt(filePrefixMatch[1], 10));
         return '1';
       };
+
+      // 0. Infer `album_artist` for Music when blank and every file shares the same `artist`
+      if (
+        mediaType === 'music' &&
+        !(nextClusterTags.album_artist || '').trim()
+      ) {
+        const fileArtists = scan.mediaFiles.map((f) =>
+          (nextFileTags[f.relativePath].artist || '').trim()
+        );
+        const firstArtist = fileArtists[0];
+        if (
+          firstArtist &&
+          fileArtists.every(
+            (a) => a.toLowerCase() === firstArtist.toLowerCase()
+          )
+        ) {
+          nextClusterTags.album_artist = firstArtist;
+          nextInferredCluster.add('album_artist');
+          for (const file of scan.mediaFiles) {
+            nextFileTags[file.relativePath].album_artist = firstArtist;
+          }
+        }
+      }
 
       // 1. Infer per-file `disc` (Music) when blank
       if (mediaType === 'music') {
@@ -257,6 +285,7 @@ export const ClusterEditor: React.FC<ClusterEditorProps> = ({
     setInferredClusterKeys(nextInferredCluster);
     setInferredFileKeys(nextInferredFile);
     setUnwantedMap(nextUnwanted);
+    setExpandedUnwantedTypes(new Set());
     setExtraActions(nextExtras);
     setSubtitlesState(scan.subtitles || []);
     setStripContainerTags(
@@ -516,6 +545,69 @@ export const ClusterEditor: React.FC<ClusterEditorProps> = ({
     return list;
   }, [scan.mediaFiles, unwantedMap]);
 
+  // Group unwanted entries by tagKey (type)
+  const groupedUnwanted = useMemo(() => {
+    const groups = new Map<
+      string,
+      Array<{
+        relativePath: string;
+        filename: string;
+        tagKey: string;
+        value: string;
+        remove: boolean;
+      }>
+    >();
+    for (const entry of allUnwantedEntries) {
+      const list = groups.get(entry.tagKey) || [];
+      list.push(entry);
+      groups.set(entry.tagKey, list);
+    }
+    return Array.from(groups.entries())
+      .sort((a, b) => a[0].localeCompare(b[0]))
+      .map(([tagKey, entries]) => {
+        const uniqueValues = Array.from(
+          new Set(entries.map((e) => e.value))
+        );
+        const allSameValue = uniqueValues.length === 1;
+        const allRemove = entries.every((e) => e.remove);
+        const someRemove = entries.some((e) => e.remove);
+        return {
+          tagKey,
+          entries,
+          allSameValue,
+          sharedValue: allSameValue ? uniqueValues[0] : null,
+          allRemove,
+          someRemove,
+        };
+      });
+  }, [allUnwantedEntries]);
+
+  const toggleUnwantedGroup = (tagKey: string, remove: boolean) => {
+    setUnwantedMap((prev) => {
+      const next: typeof prev = {};
+      for (const [relPath, tags] of Object.entries(prev)) {
+        if (tags[tagKey]) {
+          next[relPath] = {
+            ...tags,
+            [tagKey]: { ...tags[tagKey], remove },
+          };
+        } else {
+          next[relPath] = tags;
+        }
+      }
+      return next;
+    });
+  };
+
+  const toggleExpandUnwantedType = (tagKey: string) => {
+    setExpandedUnwantedTypes((prev) => {
+      const next = new Set(prev);
+      if (next.has(tagKey)) next.delete(tagKey);
+      else next.add(tagKey);
+      return next;
+    });
+  };
+
   const toggleAllUnwanted = (remove: boolean) => {
     setUnwantedMap((prev) => {
       const next: typeof prev = {};
@@ -758,40 +850,12 @@ export const ClusterEditor: React.FC<ClusterEditorProps> = ({
         </div>
       )}
 
-      {/* Cover Section for Music, Audiobooks, and Books */}
-      {meta.supportsCover && (
-        <CoverSection
-          sourceRoot={scan.sourceRoot}
-          clusterRelativePath={scan.clusterRelativePath}
-          mediaType={mediaType}
-          artistQuery={
-            clusterTags.album_artist ||
-            clusterTags.artist ||
-            clusterTags.author ||
-            ''
-          }
-          albumQuery={
-            clusterTags.album ||
-            clusterTags.book_title ||
-            clusterTags.title ||
-            scan.clusterName
-          }
-          extraImages={extraImages}
-          hasEmbeddedCoverInFirstFile={Boolean(
-            scan.mediaFiles[0]?.hasEmbeddedCover
-          )}
-          firstFileRelativePath={scan.mediaFiles[0]?.relativePath}
-          selectedCover={selectedCover}
-          onSelectCover={handleSelectCover}
-        />
-      )}
-
       {/* Cluster-Level Shared Fields */}
       {clusterLevelFields.length > 0 && (
         <div className="bg-slate-900/90 border border-slate-800 rounded-xl p-5 space-y-4">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <h3 className="text-sm font-semibold text-white">
-              Dados Comuns do Cluster (Aplicados a todos os arquivos da pasta)
+              Tags Comuns do Cluster
             </h3>
             {(inferredClusterKeys.size > 0 || inferredFileKeys.size > 0) && (
               <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] bg-amber-500/10 border border-amber-500/30 text-amber-300">
@@ -800,7 +864,7 @@ export const ClusterEditor: React.FC<ClusterEditorProps> = ({
               </span>
             )}
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 2xl:grid-cols-8 gap-3">
             {clusterLevelFields.map((field) => {
               const isInferred = inferredClusterKeys.has(field.key);
               return (
@@ -864,15 +928,6 @@ export const ClusterEditor: React.FC<ClusterEditorProps> = ({
 
       {/* Per-File Table & Live Path Previews */}
       <div className="bg-slate-900/90 border border-slate-800 rounded-xl overflow-hidden">
-        <div className="px-5 py-4 border-b border-slate-800 space-y-1">
-          <h3 className="text-sm font-semibold text-white">
-            Arquivos de Mídia ({scan.mediaFiles.length}) & Preview de Caminho/Nome Final
-          </h3>
-          <div className="text-xs font-mono text-slate-400 break-words">
-            Template: <span className="text-slate-300">{currentTemplate?.pathTemplate}/{currentTemplate?.filenameTemplate}</span>
-          </div>
-        </div>
-
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse">
             <thead>
@@ -1135,15 +1190,13 @@ export const ClusterEditor: React.FC<ClusterEditorProps> = ({
         </div>
       )}
 
-      {/* Unwanted / Non-Template Tags Section */}
-      {meta.supportsInternalTags && allUnwantedEntries.length > 0 && (
+      {/* Unwanted / Non-Template Tags Section (Grouped by Tag Type) */}
+      {meta.supportsInternalTags && groupedUnwanted.length > 0 && (
         <div className="bg-rose-950/15 border border-rose-500/30 rounded-xl p-5 space-y-3">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <div className="flex items-center gap-2 text-rose-300 font-semibold text-sm">
               <Trash2 className="w-4 h-4" />
-              <span>
-                Tags Indesejadas / Fora do Template Detectadas ({allUnwantedEntries.length})
-              </span>
+              <span>Tags Fora do Template</span>
             </div>
             <div className="flex items-center gap-2 text-xs">
               <button
@@ -1165,43 +1218,143 @@ export const ClusterEditor: React.FC<ClusterEditorProps> = ({
           <p className="text-xs text-slate-400">
             As tags marcadas abaixo não fazem parte do template de {meta.label} e serão removidas ao salvar (desmarque caso queira preservar alguma específica):
           </p>
-          <div className="max-h-48 overflow-y-auto grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2 pt-1">
-            {allUnwantedEntries.map((item, idx) => (
-              <label
-                key={`${item.relativePath}-${item.tagKey}-${idx}`}
-                className="flex items-start gap-2.5 p-2 rounded-lg bg-slate-950/80 border border-slate-800 text-xs cursor-pointer"
-              >
-                <input
-                  type="checkbox"
-                  checked={item.remove}
-                  onChange={(e) => {
-                    const checked = e.target.checked;
-                    setUnwantedMap((prev) => ({
-                      ...prev,
-                      [item.relativePath]: {
-                        ...(prev[item.relativePath] || {}),
-                        [item.tagKey]: {
-                          value: item.value,
-                          remove: checked,
-                        },
-                      },
-                    }));
-                  }}
-                  className="mt-0.5 rounded border-slate-700 bg-slate-900 text-rose-600"
-                />
-                <div className="min-w-0 flex-1">
-                  <div className="font-mono text-rose-300 break-words leading-snug">
-                    {item.tagKey}:{' '}
-                    <span className="text-slate-300 break-words">
-                      {item.value}
-                    </span>
+          <div className="space-y-2 pt-1">
+            {groupedUnwanted.map((group) => {
+              const isExpanded = expandedUnwantedTypes.has(group.tagKey);
+              return (
+                <div
+                  key={group.tagKey}
+                  className="rounded-lg bg-slate-950/80 border border-slate-800 overflow-hidden"
+                >
+                  <div className="flex items-center justify-between gap-3 px-3 py-2 text-xs">
+                    <label className="flex items-center gap-2.5 cursor-pointer select-none min-w-0">
+                      <input
+                        type="checkbox"
+                        checked={group.allRemove}
+                        ref={(el) => {
+                          if (el) {
+                            el.indeterminate =
+                              group.someRemove && !group.allRemove;
+                          }
+                        }}
+                        onChange={(e) =>
+                          toggleUnwantedGroup(group.tagKey, e.target.checked)
+                        }
+                        className="rounded border-slate-700 bg-slate-900 text-rose-600"
+                      />
+                      <span className="font-mono text-rose-300 font-medium break-words">
+                        {group.tagKey}{' '}
+                        <span className="text-slate-400 font-normal">
+                          ({group.entries.length})
+                        </span>
+                      </span>
+                    </label>
+
+                    <button
+                      type="button"
+                      onClick={() => toggleExpandUnwantedType(group.tagKey)}
+                      className="flex items-center gap-1 px-2 py-1 rounded bg-slate-900 hover:bg-slate-800 text-slate-300 text-[11px] shrink-0 transition"
+                      aria-expanded={isExpanded}
+                    >
+                      {isExpanded ? (
+                        <>
+                          <ChevronDown className="w-3.5 h-3.5" />
+                          <span>Ocultar</span>
+                        </>
+                      ) : (
+                        <>
+                          <ChevronRight className="w-3.5 h-3.5" />
+                          <span>Detalhes</span>
+                        </>
+                      )}
+                    </button>
                   </div>
-                  <div className="text-[10px] text-slate-500 break-words mt-0.5">
-                    {item.filename}
-                  </div>
+
+                  {isExpanded && (
+                    <div className="px-3 pb-3 pt-2 border-t border-slate-800/80 bg-slate-900/40 text-xs space-y-2">
+                      {group.allSameValue ? (
+                        <div className="space-y-2">
+                          <div className="p-2.5 rounded bg-slate-950 border border-slate-800/80 font-mono text-slate-200 whitespace-pre-wrap break-words leading-relaxed">
+                            {group.sharedValue}
+                          </div>
+                          <div className="space-y-1">
+                            <div className="text-[11px] text-slate-400 font-medium">
+                              Arquivos com este conteúdo ({group.entries.length}):
+                            </div>
+                            <div className="flex flex-wrap gap-1.5">
+                              {group.entries.map((item, idx) => (
+                                <label
+                                  key={`${item.relativePath}-${idx}`}
+                                  className="inline-flex items-center gap-1.5 px-2 py-1 rounded bg-slate-950 border border-slate-800 text-[11px] font-mono text-slate-300 cursor-pointer"
+                                >
+                                  <input
+                                    type="checkbox"
+                                    checked={item.remove}
+                                    onChange={(e) => {
+                                      const checked = e.target.checked;
+                                      setUnwantedMap((prev) => ({
+                                        ...prev,
+                                        [item.relativePath]: {
+                                          ...(prev[item.relativePath] || {}),
+                                          [item.tagKey]: {
+                                            value: item.value,
+                                            remove: checked,
+                                          },
+                                        },
+                                      }));
+                                    }}
+                                    className="rounded border-slate-700 bg-slate-900 text-rose-600"
+                                  />
+                                  <span className="break-words">
+                                    {item.filename}
+                                  </span>
+                                </label>
+                              ))}
+                            </div>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="space-y-1.5 max-h-60 overflow-y-auto pr-1">
+                          {group.entries.map((item, idx) => (
+                            <label
+                              key={`${item.relativePath}-${idx}`}
+                              className="flex items-start gap-2.5 p-2 rounded bg-slate-950 border border-slate-800/80 cursor-pointer"
+                            >
+                              <input
+                                type="checkbox"
+                                checked={item.remove}
+                                onChange={(e) => {
+                                  const checked = e.target.checked;
+                                  setUnwantedMap((prev) => ({
+                                    ...prev,
+                                    [item.relativePath]: {
+                                      ...(prev[item.relativePath] || {}),
+                                      [item.tagKey]: {
+                                        value: item.value,
+                                        remove: checked,
+                                      },
+                                    },
+                                  }));
+                                }}
+                                className="mt-0.5 rounded border-slate-700 bg-slate-900 text-rose-600"
+                              />
+                              <div className="min-w-0 flex-1 space-y-0.5">
+                                <div className="text-[11px] font-mono text-slate-400 break-words">
+                                  {item.filename}
+                                </div>
+                                <div className="font-mono text-slate-200 whitespace-pre-wrap break-words leading-snug">
+                                  {item.value}
+                                </div>
+                              </div>
+                            </label>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
-              </label>
-            ))}
+              );
+            })}
           </div>
         </div>
       )}
@@ -1280,6 +1433,34 @@ export const ClusterEditor: React.FC<ClusterEditorProps> = ({
             ))}
           </div>
         </div>
+      )}
+
+      {/* Cover Section for Music, Audiobooks, and Books (last section before Save footer) */}
+      {meta.supportsCover && (
+        <CoverSection
+          sourceRoot={scan.sourceRoot}
+          clusterRelativePath={scan.clusterRelativePath}
+          mediaType={mediaType}
+          artistQuery={
+            clusterTags.album_artist ||
+            clusterTags.artist ||
+            clusterTags.author ||
+            ''
+          }
+          albumQuery={
+            clusterTags.album ||
+            clusterTags.book_title ||
+            clusterTags.title ||
+            scan.clusterName
+          }
+          extraImages={extraImages}
+          hasEmbeddedCoverInFirstFile={Boolean(
+            scan.mediaFiles[0]?.hasEmbeddedCover
+          )}
+          firstFileRelativePath={scan.mediaFiles[0]?.relativePath}
+          selectedCover={selectedCover}
+          onSelectCover={handleSelectCover}
+        />
       )}
 
       {/* Action Footer */}
