@@ -390,7 +390,7 @@ describe('UI: React Application, ClusterEditor, COV Remote Protocol & TemplateMa
     // Click on the music cluster
     fireEvent.click(screen.getByText('Pink Floyd - 1973 - Dark Side'));
 
-    // Verify ClusterEditor loaded with tags, cover image resolution, and unwanted tags
+    // Verify ClusterEditor loaded with tags, cover image resolution, inferred disc/totals badges, and unwanted tags
     await waitFor(() => {
       expect(screen.getByDisplayValue('Speak to Me')).toBeInTheDocument();
     });
@@ -398,6 +398,9 @@ describe('UI: React Application, ClusterEditor, COV Remote Protocol & TemplateMa
     expect(
       screen.getByText(/Downloaded from PirateTracker/i)
     ).toBeInTheDocument();
+    // mockMusicCluster omits disc, total_discs, and total_tracks -> automatically inferred and clearly marked
+    expect(screen.getAllByText('Inferido').length).toBeGreaterThanOrEqual(2);
+    expect(screen.getAllByText('inferido').length).toBe(2);
 
     // 1. Test Official COV Integration (`remote.port=browser` + `window.open` + `postMessage` + `{type: 'close'}`)
     const covButton = screen.getByText(
@@ -474,6 +477,9 @@ describe('UI: React Application, ClusterEditor, COV Remote Protocol & TemplateMa
       'https://covers.musichoarders.xyz/highres_3000x3000.png'
     );
     expect(payload.files[0].tags.title).toBe('Speak to Me (Parsed)');
+    expect(payload.files[0].tags.disc).toBe('1');
+    expect(payload.files[0].tags.total_discs).toBe('1');
+    expect(payload.files[0].tags.total_tracks).toBe('2');
   });
 
   it('opens Series cluster with container tag strip toggle and subtitle language/flag editor', async () => {

@@ -48,6 +48,14 @@ export const ClusterEditor: React.FC<ClusterEditorProps> = ({
     Record<string, Record<string, string>>
   >({});
 
+  // Track which fields were automatically inferred instead of read from existing tags
+  const [inferredClusterKeys, setInferredClusterKeys] = useState<Set<string>>(
+    () => new Set()
+  );
+  const [inferredFileKeys, setInferredFileKeys] = useState<Set<string>>(
+    () => new Set()
+  );
+
   // Unwanted tags state: map of relativePath -> Record<unwantedKey, { value: string; remove: boolean }>
   const [unwantedMap, setUnwantedMap] = useState<
     Record<string, Record<string, { value: string; remove: boolean }>>
@@ -127,6 +135,97 @@ export const ClusterEditor: React.FC<ClusterEditorProps> = ({
       }
     }
 
+    // Automatically infer blank disc, total_discs, and total_tracks for Music & Audiobooks
+    const nextInferredCluster = new Set<string>();
+    const nextInferredFile = new Set<string>();
+
+    if (
+      (mediaType === 'music' || mediaType === 'audiobooks') &&
+      scan.mediaFiles.length > 0
+    ) {
+      const inferDiscFromPath = (relPath: string): string => {
+        const folderMatch = relPath.match(
+          /(?:^|[/\\])(?:cd|disc|disco|disk)\s*0*(\d+)(?:[/\\]|$)/i
+        );
+        if (folderMatch) return String(parseInt(folderMatch[1], 10));
+        const filePrefixMatch = relPath
+          .split('/')
+          .pop()
+          ?.match(/^0*(\d+)-0*\d+\b/);
+        if (filePrefixMatch) return String(parseInt(filePrefixMatch[1], 10));
+        return '1';
+      };
+
+      // 1. Infer per-file `disc` (Music) when blank
+      if (mediaType === 'music') {
+        for (const file of scan.mediaFiles) {
+          const existingDisc = (nextFileTags[file.relativePath].disc || '').trim();
+          if (!existingDisc) {
+            nextFileTags[file.relativePath].disc = inferDiscFromPath(
+              file.relativePath
+            );
+            nextInferredFile.add(`${file.relativePath}::disc`);
+          }
+        }
+      }
+
+      // 2. Count discs & tracks per disc
+      const discCounts = new Map<string, number>();
+      let maxDiscNum = 1;
+      for (const file of scan.mediaFiles) {
+        const d =
+          mediaType === 'music'
+            ? (nextFileTags[file.relativePath].disc || '1').trim()
+            : '1';
+        discCounts.set(d, (discCounts.get(d) || 0) + 1);
+        const dNum = parseInt(d, 10);
+        if (!Number.isNaN(dNum) && dNum > maxDiscNum) {
+          maxDiscNum = dNum;
+        }
+      }
+
+      // 3. Infer `total_discs` (Music) when blank
+      if (
+        mediaType === 'music' &&
+        !(nextClusterTags.total_discs || '').trim()
+      ) {
+        const inferredTotalDiscs = String(Math.max(discCounts.size, maxDiscNum, 1));
+        nextClusterTags.total_discs = inferredTotalDiscs;
+        nextInferredCluster.add('total_discs');
+        for (const file of scan.mediaFiles) {
+          if (!(nextFileTags[file.relativePath].total_discs || '').trim()) {
+            nextFileTags[file.relativePath].total_discs = inferredTotalDiscs;
+          }
+        }
+      }
+
+      // 4. Infer `total_tracks` (Music & Audiobooks) when blank
+      if (!(nextClusterTags.total_tracks || '').trim()) {
+        const isMultiDisc = mediaType === 'music' && discCounts.size > 1;
+        const firstDiscKey =
+          mediaType === 'music'
+            ? (nextFileTags[scan.mediaFiles[0].relativePath].disc || '1').trim()
+            : '1';
+        const clusterTotalTracks = isMultiDisc
+          ? String(discCounts.get(firstDiscKey) || scan.mediaFiles.length)
+          : String(scan.mediaFiles.length);
+        nextClusterTags.total_tracks = clusterTotalTracks;
+        nextInferredCluster.add('total_tracks');
+
+        for (const file of scan.mediaFiles) {
+          if (!(nextFileTags[file.relativePath].total_tracks || '').trim()) {
+            const d =
+              mediaType === 'music'
+                ? (nextFileTags[file.relativePath].disc || '1').trim()
+                : '1';
+            nextFileTags[file.relativePath].total_tracks = String(
+              discCounts.get(d) || scan.mediaFiles.length
+            );
+          }
+        }
+      }
+    }
+
     const nextExtras: Record<string, ExtraFileAction> = {};
     let defaultCoverImg: string | undefined;
     for (const extra of scan.extraFiles) {
@@ -155,6 +254,8 @@ export const ClusterEditor: React.FC<ClusterEditorProps> = ({
 
     setClusterTags(nextClusterTags);
     setFileTagsMap(nextFileTags);
+    setInferredClusterKeys(nextInferredCluster);
+    setInferredFileKeys(nextInferredFile);
     setUnwantedMap(nextUnwanted);
     setExtraActions(nextExtras);
     setSubtitlesState(scan.subtitles || []);
@@ -230,6 +331,12 @@ export const ClusterEditor: React.FC<ClusterEditorProps> = ({
 
   const handleClusterTagChange = (key: string, value: string) => {
     setClusterTags((prev) => ({ ...prev, [key]: value }));
+    setInferredClusterKeys((prev) => {
+      if (!prev.has(key)) return prev;
+      const next = new Set(prev);
+      next.delete(key);
+      return next;
+    });
     setFileTagsMap((prev) => {
       const next = { ...prev };
       for (const relPath of Object.keys(next)) {
@@ -244,6 +351,13 @@ export const ClusterEditor: React.FC<ClusterEditorProps> = ({
     key: string,
     value: string
   ) => {
+    const inferredId = `${relativePath}::${key}`;
+    setInferredFileKeys((prev) => {
+      if (!prev.has(inferredId)) return prev;
+      const next = new Set(prev);
+      next.delete(inferredId);
+      return next;
+    });
     setFileTagsMap((prev) => ({
       ...prev,
       [relativePath]: {
@@ -253,7 +367,7 @@ export const ClusterEditor: React.FC<ClusterEditorProps> = ({
     }));
   };
 
-  // Auto-number tracks / chapters / episodes sequentially (1..N)
+  // Auto-number tracks / chapters / episodes sequentially (1..N, or per-disc for multi-disc music)
   const handleAutoNumber = () => {
     const numberKey =
       mediaType === 'series'
@@ -266,6 +380,50 @@ export const ClusterEditor: React.FC<ClusterEditorProps> = ({
       mediaType === 'music' || mediaType === 'audiobooks'
         ? 'total_tracks'
         : null;
+
+    if (mediaType === 'music') {
+      const discCounters = new Map<string, number>();
+      const discTotals = new Map<string, number>();
+      let maxDisc = 1;
+
+      for (const f of scan.mediaFiles) {
+        const d = (fileTagsMap[f.relativePath]?.disc || '1').trim() || '1';
+        discTotals.set(d, (discTotals.get(d) || 0) + 1);
+        const dn = parseInt(d, 10);
+        if (!Number.isNaN(dn) && dn > maxDisc) maxDisc = dn;
+      }
+
+      const totalDiscsStr = String(Math.max(discTotals.size, maxDisc, 1));
+      const firstDisc =
+        (fileTagsMap[scan.mediaFiles[0]?.relativePath]?.disc || '1').trim() || '1';
+      const firstDiscTotal = String(
+        discTotals.get(firstDisc) || scan.mediaFiles.length
+      );
+
+      setClusterTags((prev) => ({
+        ...prev,
+        total_tracks: firstDiscTotal,
+        total_discs: prev.total_discs || totalDiscsStr,
+      }));
+
+      setFileTagsMap((prev) => {
+        const next = { ...prev };
+        for (const f of scan.mediaFiles) {
+          const d = (next[f.relativePath]?.disc || '1').trim() || '1';
+          const nextNum = (discCounters.get(d) || 0) + 1;
+          discCounters.set(d, nextNum);
+          next[f.relativePath] = {
+            ...(next[f.relativePath] || {}),
+            disc: d,
+            total_discs: next[f.relativePath]?.total_discs || totalDiscsStr,
+            track: String(nextNum),
+            total_tracks: String(discTotals.get(d) || scan.mediaFiles.length),
+          };
+        }
+        return next;
+      });
+      return;
+    }
 
     const totalCount = String(scan.mediaFiles.length);
     if (totalKey) {
@@ -631,28 +789,55 @@ export const ClusterEditor: React.FC<ClusterEditorProps> = ({
       {/* Cluster-Level Shared Fields */}
       {clusterLevelFields.length > 0 && (
         <div className="bg-slate-900/90 border border-slate-800 rounded-xl p-5 space-y-4">
-          <h3 className="text-sm font-semibold text-white">
-            Dados Comuns do Cluster (Aplicados a todos os arquivos da pasta)
-          </h3>
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <h3 className="text-sm font-semibold text-white">
+              Dados Comuns do Cluster (Aplicados a todos os arquivos da pasta)
+            </h3>
+            {(inferredClusterKeys.size > 0 || inferredFileKeys.size > 0) && (
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] bg-amber-500/10 border border-amber-500/30 text-amber-300">
+                Campos marcados como <strong>Inferido</strong> foram preenchidos
+                automaticamente por estarem ausentes nas tags originais.
+              </span>
+            )}
+          </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {clusterLevelFields.map((field) => (
-              <div key={field.key} className="space-y-1">
-                <label className="block text-xs font-medium text-slate-400">
-                  {field.label}{' '}
-                  <code className="text-indigo-400">{`{${field.key}}`}</code>
-                </label>
-                <input
-                  type="text"
-                  value={clusterTags[field.key] || ''}
-                  title={clusterTags[field.key] || ''}
-                  onChange={(e) =>
-                    handleClusterTagChange(field.key, e.target.value)
-                  }
-                  placeholder={field.placeholder}
-                  className="w-full px-3 py-2 rounded-lg bg-slate-950 border border-slate-700 text-sm text-white focus:border-indigo-500 focus:outline-none"
-                />
-              </div>
-            ))}
+            {clusterLevelFields.map((field) => {
+              const isInferred = inferredClusterKeys.has(field.key);
+              return (
+                <div key={field.key} className="space-y-1">
+                  <label className="flex flex-wrap items-center gap-1.5 text-xs font-medium text-slate-400">
+                    <span>{field.label}</span>
+                    <code className="text-indigo-400">{`{${field.key}}`}</code>
+                    {isInferred && (
+                      <span
+                        className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-amber-500/15 text-amber-300 border border-amber-500/40"
+                        title="Valor preenchido automaticamente porque esta tag não existia nos arquivos originais"
+                      >
+                        Inferido
+                      </span>
+                    )}
+                  </label>
+                  <input
+                    type="text"
+                    value={clusterTags[field.key] || ''}
+                    title={
+                      isInferred
+                        ? `${clusterTags[field.key] || ''} (valor inferido automaticamente)`
+                        : clusterTags[field.key] || ''
+                    }
+                    onChange={(e) =>
+                      handleClusterTagChange(field.key, e.target.value)
+                    }
+                    placeholder={field.placeholder}
+                    className={`w-full px-3 py-2 rounded-lg text-sm text-white focus:border-indigo-500 focus:outline-none ${
+                      isInferred
+                        ? 'bg-amber-950/20 border border-amber-500/50'
+                        : 'bg-slate-950 border border-slate-700'
+                    }`}
+                  />
+                </div>
+              );
+            })}
           </div>
 
           {mediaType === 'books' &&
@@ -745,13 +930,20 @@ export const ClusterEditor: React.FC<ClusterEditorProps> = ({
 
                     {fileLevelFields.map((field) => {
                       const val = fTags[field.key] || '';
+                      const isFileInferred = inferredFileKeys.has(
+                        `${file.relativePath}::${field.key}`
+                      );
                       if (field.isNumeric) {
                         return (
                           <td key={field.key} className="py-2.5 px-2.5">
                             <input
                               type="text"
                               value={val}
-                              title={val}
+                              title={
+                                isFileInferred
+                                  ? `${val} (valor inferido automaticamente por ausência na tag original)`
+                                  : val
+                              }
                               onChange={(e) =>
                                 handleFileTagChange(
                                   file.relativePath,
@@ -760,8 +952,20 @@ export const ClusterEditor: React.FC<ClusterEditorProps> = ({
                                 )
                               }
                               placeholder={field.placeholder}
-                              className="w-16 px-2.5 py-1.5 rounded bg-slate-950 border border-slate-700 text-xs font-mono text-white focus:border-indigo-500 focus:outline-none"
+                              className={`w-16 px-2.5 py-1.5 rounded text-xs font-mono text-white focus:border-indigo-500 focus:outline-none ${
+                                isFileInferred
+                                  ? 'bg-amber-950/25 border border-amber-500/50'
+                                  : 'bg-slate-950 border border-slate-700'
+                              }`}
                             />
+                            {isFileInferred && (
+                              <div
+                                className="text-[10px] text-amber-300 font-medium mt-0.5"
+                                title="Valor preenchido automaticamente por estar ausente na tag original"
+                              >
+                                inferido
+                              </div>
+                            )}
                           </td>
                         );
                       }
