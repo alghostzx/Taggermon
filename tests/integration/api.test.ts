@@ -303,6 +303,61 @@ describe('Integration: Fastify REST API, COV Proxy, Scanner & Security', () => {
     ).toBe(true);
   });
 
+  it('preserves folder.png/folder.jpg and moved extras when editing an existing library album in-place (e.g. changing only Genre)', async () => {
+    const albumDir = path.join(
+      ws.libraryDirs.music,
+      'Pink Floyd/1973 - The Dark Side of the Moon'
+    );
+    ws.copyFixture(
+      'audio/sample.flac',
+      path.join(albumDir, '01 - Speak to Me.flac')
+    );
+    ws.copyFixture('extras/cover_highres.png', path.join(albumDir, 'folder.png'));
+    ws.copyFixture('extras/rip.log', path.join(albumDir, 'rip.log'));
+    fs.writeFileSync(path.join(albumDir, 'junk.txt'), 'temp junk');
+
+    const procRes = await app.inject({
+      method: 'POST',
+      url: '/api/process-cluster',
+      payload: {
+        sourceRoot: 'music',
+        clusterRelativePath: 'Pink Floyd/1973 - The Dark Side of the Moon',
+        targetMediaType: 'music',
+        deleteIgnoredExtrasAndCleanupSource: true,
+        coverSelection: {
+          mode: 'extra_file',
+          extraFileRelativePath: 'folder.png',
+        },
+        files: [
+          {
+            relativePath: '01 - Speak to Me.flac',
+            tags: {
+              album_artist: 'Pink Floyd',
+              artist: 'Pink Floyd',
+              album: 'The Dark Side of the Moon',
+              year: '1973',
+              genre: 'Psychedelic Rock',
+              track: '1',
+              title: 'Speak to Me',
+            },
+          },
+        ],
+        extraFiles: [
+          { relativePath: 'folder.png', action: 'use_as_cover' },
+          { relativePath: 'rip.log', action: 'move' },
+          { relativePath: 'junk.txt', action: 'ignore' },
+        ],
+      },
+    });
+    expect(procRes.statusCode).toBe(200);
+    expect(fs.existsSync(path.join(albumDir, '01 - Speak to Me.flac'))).toBe(
+      true
+    );
+    expect(fs.existsSync(path.join(albumDir, 'folder.png'))).toBe(true);
+    expect(fs.existsSync(path.join(albumDir, 'rip.log'))).toBe(true);
+    expect(fs.existsSync(path.join(albumDir, 'junk.txt'))).toBe(false);
+  });
+
   it('supports /api/parse-pattern and /api/preview-destinations endpoints', async () => {
     const parseRes = await app.inject({
       method: 'POST',

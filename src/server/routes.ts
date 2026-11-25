@@ -208,6 +208,7 @@ export async function executeProcessCluster(
       destinationRelativePath: string;
     }> = [];
     const primaryDestinationDirs = new Set<string>();
+    const protectedDestinationPaths = new Set<string>();
 
     for (const fileItem of files) {
       const sourceFileFull = resolveSafePath(
@@ -297,15 +298,19 @@ export async function executeProcessCluster(
             isSdh: s.isSdh,
           }));
 
-        await processVideoAndSubtitles({
+        const videoResult = await processVideoAndSubtitles({
           sourceVideoPath: sourceFileFull,
           destinationVideoPath: destFileFull,
           stripContainerTags,
           subtitles: matchedSubs,
           removeSourceAfterWrite: true,
         });
+        for (const subOut of videoResult.subtitleOutputPaths) {
+          protectedDestinationPaths.add(path.resolve(subOut));
+        }
       }
 
+      protectedDestinationPaths.add(path.resolve(destFileFull));
       processedFiles.push({
         sourceRelativePath: fileItem.relativePath,
         destinationRelativePath: formatted.fullRelativePath,
@@ -324,6 +329,7 @@ export async function executeProcessCluster(
           coverBufferForFolder,
           albumDir
         );
+        protectedDestinationPaths.add(path.resolve(savedCoverFull));
         folderCoverSavedAs = path
           .relative(destLibraryRoot, savedCoverFull)
           .replace(/\\/g, '/');
@@ -353,35 +359,38 @@ export async function executeProcessCluster(
           fs.copyFileSync(sourceExtraFull, targetExtraFull);
           fs.unlinkSync(sourceExtraFull);
         }
+        protectedDestinationPaths.add(path.resolve(targetExtraFull));
         movedExtras.push(
           path.relative(destLibraryRoot, targetExtraFull).replace(/\\/g, '/')
         );
       } else if (extra.action === 'use_as_cover') {
-        // Already copied as folder.jpg/png and embedded; remove original file from downloads if different from destination
-        const isInsideDest = Array.from(primaryDestinationDirs).some((d) =>
-          path.resolve(sourceExtraFull).startsWith(path.resolve(d))
-        );
-        if (!isInsideDest && fs.existsSync(sourceExtraFull)) {
+        // Already copied as folder.jpg/png and embedded; remove original file only if it is not the saved folder cover itself
+        const resolvedSource = path.resolve(sourceExtraFull);
+        if (
+          !protectedDestinationPaths.has(resolvedSource) &&
+          fs.existsSync(sourceExtraFull)
+        ) {
           fs.unlinkSync(sourceExtraFull);
         }
       } else if (
         extra.action === 'delete' ||
         (extra.action === 'ignore' && deleteIgnoredExtrasAndCleanupSource)
       ) {
-        fs.unlinkSync(sourceExtraFull);
-        deletedExtras.push(extra.relativePath);
+        const resolvedSource = path.resolve(sourceExtraFull);
+        if (!protectedDestinationPaths.has(resolvedSource)) {
+          fs.unlinkSync(sourceExtraFull);
+          deletedExtras.push(extra.relativePath);
+        }
       }
     }
 
-    // If deleteIgnoredExtrasAndCleanupSource is requested, remove any leftover files in the source cluster that aren't in the destination
+    // If deleteIgnoredExtrasAndCleanupSource is requested, remove any leftover files in the source cluster that aren't protected destination outputs
     if (deleteIgnoredExtrasAndCleanupSource && fs.existsSync(clusterFullPath)) {
       const remaining = collectAllFilesRelative(clusterFullPath);
       for (const remRel of remaining) {
         const remFull = path.join(clusterFullPath, remRel);
-        const isProtectedDest = processedFiles.some(
-          (pf) =>
-            path.resolve(path.join(destLibraryRoot, pf.destinationRelativePath)) ===
-            path.resolve(remFull)
+        const isProtectedDest = protectedDestinationPaths.has(
+          path.resolve(remFull)
         );
         if (!isProtectedDest && fs.existsSync(remFull)) {
           fs.unlinkSync(remFull);
